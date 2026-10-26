@@ -33,8 +33,10 @@ function decisionSentence(item, policies) {
       return 'Your late check-out until ' + time + ' on ' + e(item.check_out_date) + ' is confirmed.';
     case 'STANDARD_CHECKOUT_APPLIES':
       return 'Your departure at ' + time + ' is within our standard check-out time of ' + checkout + '.';
-    case 'LATE_CHECKOUT_UNAVAILABLE':
     case 'LATE_CHECKOUT_TOO_LATE':
+      return 'We can\'t hold your room until ' + time + ', but we can offer late check-out until ' + e(item.offered_time) +
+        ' on ' + e(item.check_out_date) + '. Reply to this email to accept, and we can store your luggage after that.';
+    case 'LATE_CHECKOUT_UNAVAILABLE':
     case 'LATE_CHECKOUT_DISABLED':
       return 'We are unable to extend your check-out' + (time ? ' to ' + time : '') + ' on ' + e(item.check_out_date) +
         '. We would be happy to store your luggage after check-out at ' + checkout + '.';

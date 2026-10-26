@@ -111,6 +111,19 @@ test('an arrival at or after standard check-in needs no early room', () => {
   assert.deepEqual(item.inventory_changes, []);
 });
 
+test('a late check-out past the limit is offered the latest time when a room allows it', () => {
+  const [item] = decideAll([withBooking('REQ-2026-105', { request_details: 'Can we stay until 6:00 PM?' })]);
+  assert.equal(item.status, 'ALTERNATIVE_OFFERED');
+  assert.equal(item.decision_code, 'LATE_CHECKOUT_TOO_LATE');
+  assert.equal(item.requested_time, '18:00');
+  assert.equal(item.offered_time, '16:00');
+});
+
+test('a late check-out past the limit with no availability is unavailable', () => {
+  const [item] = decideAll([withBooking('REQ-2026-120', { request_details: 'Can we stay until 6:00 PM?' })]);
+  assert.equal(item.decision_code, 'LATE_CHECKOUT_UNAVAILABLE');
+});
+
 test('an early check-in without a time goes to review', () => {
   const [item] = decideAll([withBooking('REQ-2026-101', { request_details: 'Arriving early if possible.' })]);
   assert.equal(item.decision_code, 'TIME_NOT_FOUND');

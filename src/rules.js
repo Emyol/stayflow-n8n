@@ -99,16 +99,17 @@ function decideLateCheckout(item, ctx) {
     return outcome('CONFIRMED', 'STANDARD_CHECKOUT_APPLIES',
       'Requested ' + time + ' is within standard check-out (' + standard + ')', 'None: standard check-out applies', extra);
   }
-  if (toMinutes(time) > toMinutes(latest)) {
-    return outcome('ALTERNATIVE_OFFERED', 'LATE_CHECKOUT_TOO_LATE',
-      'Requested ' + time + ' is later than the latest late check-out (' + latest + ')',
-      'Offer late check-out until ' + latest + ' plus luggage storage', extra);
-  }
   var key = item.check_out_date + '|' + item.room_type;
   var row = ctx.inventory.get(key);
   if (!row) {
     return outcome('MANUAL_REVIEW', 'INVENTORY_NOT_FOUND',
       'No inventory row for ' + item.room_type + ' on ' + item.check_out_date, 'Check departure-day occupancy manually', extra);
+  }
+  if (available(row) > 0 && toMinutes(time) > toMinutes(latest)) {
+    extra.offered_time = latest;
+    return outcome('ALTERNATIVE_OFFERED', 'LATE_CHECKOUT_TOO_LATE',
+      'Requested ' + time + ' is later than the latest late check-out (' + latest + ')',
+      'Offer late check-out until ' + latest + ' plus luggage storage', extra);
   }
   if (available(row) > 0) {
     return outcome('CONFIRMED', 'LATE_CHECKOUT_CONFIRMED',
@@ -222,6 +223,6 @@ function decideBatch(route, items, ctx) {
         : CATEGORY_RULES[route](item, ctx, state);
     }
     return Object.assign({}, item,
-      { requested_time: '', target_room_type: '', pet_weight_lbs: '', inventory_changes: [] }, decision);
+      { requested_time: '', offered_time: '', target_room_type: '', pet_weight_lbs: '', inventory_changes: [] }, decision);
   });
 }

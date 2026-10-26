@@ -10,9 +10,19 @@ function buildPolicies(rows) {
   return policies;
 }
 
+// Accepts "14:00", "14:00:00", "2:00 PM", or a Sheets time serial (0.625),
+// since retyping a time cell in Sheets can turn it into any of these.
 function policyTime(policies, key) {
-  var minutes = toMinutes(policies[key]);
-  return minutes === null ? null : fromMinutes(minutes);
+  var raw = String(policies[key] == null ? '' : policies[key]).trim();
+  if (!raw) return null;
+  if (/^\d*\.\d+$|^0$/.test(raw) && Number(raw) < 1) return fromMinutes(Math.round(Number(raw) * 1440));
+  var clock = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
+  if (clock) {
+    var minutes = toMinutes(clock[1] + ':' + clock[2]);
+    return minutes === null ? null : fromMinutes(minutes);
+  }
+  var spoken = parseTimes(raw);
+  return spoken.length === 1 ? spoken[0] : null;
 }
 
 function policyNumber(policies, key) {
@@ -32,7 +42,7 @@ function policyBool(policies, key) {
 function buildCatalog(rows) {
   var catalog = new Map();
   rows.forEach(function (row) {
-    var label = normalizeLabel(row.request_type_label);
+    var label = labelKey(row.request_type_label);
     if (!label) return;
     catalog.set(label, {
       category: String(row.category || '').trim(),

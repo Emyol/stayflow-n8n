@@ -15,6 +15,13 @@ test('policies are read as typed values', () => {
   assert.equal(policyBool(p, 'pets_allowed'), true);
 });
 
+test('policy times survive Sheets reformatting a retyped cell', () => {
+  assert.equal(policyTime({ t: '14:00:00' }, 't'), '14:00');
+  assert.equal(policyTime({ t: '2:00 PM' }, 't'), '14:00');
+  assert.equal(policyTime({ t: 0.625 }, 't'), '15:00');
+  assert.equal(policyTime({ t: '0.4166666667' }, 't'), '10:00');
+});
+
 test('a blank or missing policy reads as null', () => {
   assert.equal(policyTime({ earliest_early_checkin: '' }, 'earliest_early_checkin'), null);
   assert.equal(policyNumber({}, 'upgrade_hold_hours'), null);
@@ -23,10 +30,10 @@ test('a blank or missing policy reads as null', () => {
 
 test('catalog is keyed by normalized label', () => {
   const catalog = buildCatalog(readSheet('RequestCatalog'));
-  assert.deepEqual(catalog.get('laundry and dry cleaning'), {
+  assert.deepEqual(catalog.get('laundryanddrycleaning'), {
     category: 'service_request', base_priority: 'NORMAL', schedule_from_text: false,
   });
-  assert.equal(catalog.get('airport transfer').schedule_from_text, true);
+  assert.equal(catalog.get('airporttransfer').schedule_from_text, true);
 });
 
 test('inventory availability subtracts reserved, blocked and holds', () => {

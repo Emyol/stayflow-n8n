@@ -35,6 +35,8 @@ function calendarPlan(item, ctx) {
     case 'LATE_CHECKOUT_CONFIRMED':
       return { title: 'Late check-out approved until ' + item.requested_time + ': notify housekeeping',
         when: slot(item.check_out_date, checkout, 30, offset) };
+    case 'LATE_CHECKOUT_TOO_LATE':
+      return { title: 'Offer late check-out until ' + item.offered_time, when: slot(item.check_out_date, checkout, 30, offset) };
     case 'LATE_CHECKOUT_UNAVAILABLE':
       return { title: 'Offer luggage storage at check-out', when: slot(item.check_out_date, checkout, 30, offset) };
     case 'UPGRADE_UNAVAILABLE':

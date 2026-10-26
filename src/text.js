@@ -63,6 +63,11 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Lookup key for request labels: "Late Checkout" and "Late Check-Out" match.
+function labelKey(s) {
+  return normalizeLabel(s).replace(/ /g, '');
+}
+
 function normalizeLabel(s) {
   return String(s == null ? '' : s).toLowerCase()
     .replace(/&/g, ' and ')

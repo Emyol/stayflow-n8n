@@ -80,6 +80,16 @@ test('invalid requests ask for details only when the address is usable', () => {
   assert.equal(M.planActions(byId(edgeDecided, 'EDGE-001'), ctx).email_needed, false);
 });
 
+test('a too-late check-out gets an offer task and an email naming the offered time', () => {
+  const sub = structuredClone(payload.submissions.find(s => s.request_id === 'REQ-2026-105'));
+  sub.booking.request_details = 'Can we stay until 6:00 PM?';
+  const p = M.planActions(decideAll([sub], ctx)[0], ctx);
+  assert.equal(p.calendar_start, '2026-11-08T11:00:00+08:00');
+  assert.ok(p.calendar_summary.startsWith('Offer late check-out until 16:00'));
+  assert.ok(p.email_html.includes('16:00'));
+  assert.ok(!p.email_html.includes('unable to extend'));
+});
+
 test('guest text is escaped in the email', () => {
   const html = M.planActions(byId(edgeDecided, 'EDGE-008'), ctx).email_html;
   assert.ok(html.includes('&lt;script&gt;'));

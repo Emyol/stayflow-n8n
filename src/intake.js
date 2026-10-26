@@ -57,12 +57,15 @@ function highPriorityKeywords(policies) {
 
 function classifyBatch(requests, ref) {
   var keywords = highPriorityKeywords(ref.policies);
+  // Duplicates are the same booking asking for the same request type; two
+  // different services on one booking are both handled.
   var openRequests = new Map();
   ref.log.rows.forEach(function (row) {
     if (row.status === 'INVALID' || row.status === 'DUPLICATE') return;
-    var key = row.confirmation_number + '|' + row.category;
+    var key = row.confirmation_number + '|' + labelKey(row.request_type);
     if (!openRequests.has(key)) openRequests.set(key, String(row.request_id));
   });
+  var seenIds = new Set();
 
   return requests.map(function (original, index) {
     var request = Object.assign({}, original);
@@ -70,7 +73,7 @@ function classifyBatch(requests, ref) {
     if (!request.request_id) {
       request.request_id = 'NOID-' + (request.confirmation_number || 'UNKNOWN') + '-' + (request.received_at || index);
     }
-    var entry = ref.catalog.get(normalizeLabel(request.request_type));
+    var entry = ref.catalog.get(labelKey(request.request_type));
     var details = String(request.request_details || '').toLowerCase();
     var keywordHit = keywords.some(function (word) { return details.indexOf(word) !== -1; });
     var result = Object.assign(request, {
@@ -83,12 +86,12 @@ function classifyBatch(requests, ref) {
     });
     result.priority = result.base_priority === 'HIGH' || keywordHit ? 'HIGH' : 'NORMAL';
 
-    if (ref.log.byRequestId.has(result.request_id)) {
+    if (ref.log.byRequestId.has(result.request_id) || seenIds.has(result.request_id)) {
       result.route = 'already_processed';
     } else if (errors.length) {
       result.route = 'invalid';
     } else {
-      var key = result.confirmation_number + '|' + result.category;
+      var key = result.confirmation_number + '|' + labelKey(result.request_type);
       var earlier = openRequests.get(key);
       if (earlier && earlier !== result.request_id) {
         result.route = 'duplicate';
@@ -98,6 +101,7 @@ function classifyBatch(requests, ref) {
         openRequests.set(key, result.request_id);
       }
     }
+    seenIds.add(result.request_id);
     return result;
   });
 }

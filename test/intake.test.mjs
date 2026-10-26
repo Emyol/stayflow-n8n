@@ -74,8 +74,32 @@ test('edge-case batch: invalid, unknown, in-batch duplicate, lowercase label', (
   assert.equal(byId(out, 'EDGE-007').route, 'early_checkin');
 });
 
-test('a logged request for the same booking and category is a duplicate', () => {
-  const log = buildLogIndex([{ request_id: 'REQ-OLD', confirmation_number: 'HTL-88219', category: 'early_checkin', status: 'CONFIRMED' }]);
+test('different request types on one booking are not duplicates', () => {
+  const base = reqs.find(r => r.request_id === 'REQ-2026-110');
+  const out = classifyBatch([
+    { ...base, request_id: 'B-1', request_type: 'Airport Transfer' },
+    { ...base, request_id: 'B-2', request_type: 'In-Room Dining Booking' },
+    { ...base, request_id: 'B-3', request_type: 'Dietary Preference' },
+    { ...base, request_id: 'B-4', request_type: 'Accessibility Request' },
+  ], ctx);
+  assert.deepEqual(out.map(r => r.route), ['service_request', 'service_request', 'special_care', 'special_care']);
+});
+
+test('the same request_id twice in one batch is processed once', () => {
+  const out = classifyBatch([reqs[0], { ...reqs[0] }], ctx);
+  assert.equal(out[0].route, 'early_checkin');
+  assert.equal(out[1].route, 'already_processed');
+});
+
+test('labels without spaces still classify', () => {
+  for (const label of ['Late Checkout', 'Early Checkin', 'Inroom Dining Booking']) {
+    const [out] = classifyBatch([{ ...reqs[0], request_type: label }], ctx);
+    assert.notEqual(out.category, 'other', label);
+  }
+});
+
+test('a logged request for the same booking and request type is a duplicate', () => {
+  const log = buildLogIndex([{ request_id: 'REQ-OLD', confirmation_number: 'HTL-88219', request_type: 'Early Check-In', category: 'early_checkin', status: 'CONFIRMED' }]);
   const out = classifyBatch(reqs, { ...ctx, log });
   assert.equal(byId(out, 'REQ-2026-101').route, 'duplicate');
   assert.equal(byId(out, 'REQ-2026-101').duplicate_of, 'REQ-OLD');

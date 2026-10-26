@@ -5,7 +5,7 @@ Everything below was executed against the local Docker n8n on 2026-10-26.
 ## Build
 
 ```bash
-npm test                  # 75 tests, all offline
+npm test                  # 82 tests, all offline
 npm run build -- local    # dist/stayflow-local.json  (credential ids for this machine)
 npm run build -- cloud    # dist/stayflow-cloud.json  (credential names only)
 ```
@@ -41,7 +41,7 @@ Temporarily set **Create Staff Task** → calendar to `stayflow-missing-calendar
 
 ## Move to the organizer cloud
 
-1. `npm run build -- cloud`.
+1. Decide which Google account the cloud credentials will sign in as. If it is not the account that owns the StayFlow sheet and calendar, share the spreadsheet (Editor) and the calendar ("Make changes to events") with it, and set `calendarId` in `config/cloud.json` to a calendar that account can write to. Then `npm run build -- cloud`.
 2. In https://khylepanganiban.app.n8n.cloud create a new workflow, open `dist/stayflow-cloud.json`, copy everything and paste onto the canvas.
 3. Create the three Google credentials there (Sheets, Calendar, Gmail) and select them on every Google node; nodes show a warning until a credential is picked.
 4. In the workflow settings, set the timezone to Asia/Manila if it did not carry over.
