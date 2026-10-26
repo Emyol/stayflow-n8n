@@ -1,0 +1,114 @@
+[
+  {
+    "request_id": "EDGE-001",
+    "timestamp": "2026-10-26T20:00:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90001",
+      "guest_name": "Ivy Invalid",
+      "email": "not-an-email",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Early Check-In",
+      "request_details": "Arriving at 11:00 AM."
+    }
+  },
+  {
+    "request_id": "EDGE-002",
+    "timestamp": "2026-10-26T20:01:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90002",
+      "guest_name": "Zero Night",
+      "email": "zero.night@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-02",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Amenity Request",
+      "request_details": "Extra towels please."
+    }
+  },
+  {
+    "request_id": "EDGE-003",
+    "timestamp": "2026-10-26T20:02:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90003",
+      "guest_name": "   ",
+      "email": "no.name@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Bedding Preference",
+      "request_details": "Firm pillows."
+    }
+  },
+  {
+    "request_id": "EDGE-004",
+    "timestamp": "2026-10-26T20:03:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90004",
+      "guest_name": "Sam Spa",
+      "email": "sam.spa@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Spa Booking",
+      "request_details": "Couples massage on arrival day."
+    }
+  },
+  {
+    "request_id": "EDGE-005",
+    "timestamp": "2026-10-26T20:04:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90005",
+      "guest_name": "Dee Dupe",
+      "email": "dee.dupe@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Early Check-In",
+      "request_details": "Early check-in at 11:00 AM please."
+    }
+  },
+  {
+    "request_id": "EDGE-006",
+    "timestamp": "2026-10-26T20:05:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90005",
+      "guest_name": "Dee Dupe",
+      "email": "dee.dupe@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Early Check-In",
+      "request_details": "Following up: early check-in at 11:00 AM?"
+    }
+  },
+  {
+    "request_id": "EDGE-007",
+    "timestamp": "2026-10-26T20:06:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90007",
+      "guest_name": "Lou Lower",
+      "email": "lou.lower@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "early check in",
+      "request_details": "Could we check in at 12 PM?"
+    }
+  },
+  {
+    "request_id": "EDGE-008",
+    "timestamp": "2026-10-26T20:07:00Z",
+    "booking": {
+      "confirmation_number": "HTL-90008",
+      "guest_name": "Mal Markup",
+      "email": "mal.markup@example.com",
+      "check_in_date": "2026-11-02",
+      "check_out_date": "2026-11-04",
+      "room_type": "Deluxe King Suite",
+      "request_type": "Amenity Request",
+      "request_details": "<script>alert(1)</script> & co"
+    }
+  }
+]
