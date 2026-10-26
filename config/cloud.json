@@ -1,6 +1,6 @@
 {
   "spreadsheetId": "18wno6DELat3xTkZs62UcYKlw_iRo9W2DtaCTZP2iyvk",
-  "calendarId": "primary",
+  "calendarId": "acunaamieljosiah@gmail.com",
   "credentials": {
     "googleSheetsOAuth2Api": { "name": "Google Sheets (StayFlow)" },
     "googleCalendarOAuth2Api": { "name": "Google Calendar (StayFlow)" },

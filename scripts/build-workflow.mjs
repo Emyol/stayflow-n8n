@@ -157,7 +157,7 @@ export function buildWorkflow(env) {
         ['staff_action', FIXED_DECISIONS[route].staff_action],
         ['decision_reason', DECISION_REASONS[route]],
       ], true)
-      : codeNode(name, [2460, branchY(i)], rulesModules, readGlue('rules').replace('__ROUTE__', route))),
+      : codeNode(name, [2460, branchY(i)], rulesModules, readGlue('rules').replaceAll('__ROUTE__', route))),
     codeNode('Collect Inventory Changes', [2740, -300], ['reference', 'inventory'], readGlue('inventory')),
     { name: 'Update Room Inventory', type: 'n8n-nodes-base.googleSheets', typeVersion: 4.5, position: [2960, -300],
       parameters: {
@@ -258,7 +258,7 @@ export function buildWorkflow(env) {
     name: 'StayFlow | Track C | Guest Request Automation',
     nodes,
     connections: links,
-    settings: { executionOrder: 'v1', timezone: 'Asia/Manila', saveManualExecutions: true },
+    settings: { executionOrder: 'v1', timezone: 'Asia/Manila', saveManualExecutions: true, availableInMCP: true },
     pinData: {},
     active: false,
   };

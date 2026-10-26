@@ -71,6 +71,22 @@ test('every Code node body parses', () => {
   }
 });
 
+test('calendar id is an email-style id that n8n accepts in id mode', () => {
+  for (const env of ['local', 'cloud']) {
+    const calendar = buildWorkflow(env).nodes.find(n => n.name === 'Create Staff Task').parameters.calendar.value;
+    assert.match(calendar, /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i, env);
+  }
+});
+
+test('each rules node calls decideBatch with its own route', () => {
+  const routes = { 'Rules: Early Check-In': 'early_checkin', 'Rules: Room Upgrade': 'room_upgrade', 'Rules: Special Care': 'special_care' };
+  for (const [name, route] of Object.entries(routes)) {
+    const code = node(name).parameters.jsCode;
+    assert.ok(code.includes(`decideBatch('${route}'`), name);
+    assert.ok(!code.includes('__ROUTE__'), name);
+  }
+});
+
 test('node names are unique', () => {
   assert.equal(new Set(wf.nodes.map(n => n.name)).size, wf.nodes.length);
 });

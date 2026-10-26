@@ -1,7 +1,7 @@
 {
   "workflowId": "stayflowTrackC01",
   "spreadsheetId": "18wno6DELat3xTkZs62UcYKlw_iRo9W2DtaCTZP2iyvk",
-  "calendarId": "primary",
+  "calendarId": "acunaamieljosiah@gmail.com",
   "credentials": {
     "googleSheetsOAuth2Api": { "id": "KvyqtHx9IJUDs0U3", "name": "Google Sheets (StayFlow)" },
     "googleCalendarOAuth2Api": { "id": "0CSUjXdiJ80r648M", "name": "Google Calendar (StayFlow)" },
