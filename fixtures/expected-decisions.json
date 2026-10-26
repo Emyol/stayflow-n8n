@@ -1,0 +1,182 @@
+[
+  {
+    "request_id": "REQ-2026-101",
+    "category": "early_checkin",
+    "status": "CONFIRMED",
+    "decision_code": "EARLY_CHECKIN_CONFIRMED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-02T09:30:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-102",
+    "category": "room_upgrade",
+    "status": "ALTERNATIVE_OFFERED",
+    "decision_code": "UPGRADE_UNAVAILABLE",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-03T09:00:00+08:00",
+    "email_template": "alternative"
+  },
+  {
+    "request_id": "REQ-2026-103",
+    "category": "special_care",
+    "status": "MANUAL_REVIEW",
+    "decision_code": "SPECIAL_CARE_REVIEW",
+    "priority": "HIGH",
+    "calendar_start": "2026-10-26T22:00:00+08:00",
+    "email_template": "review"
+  },
+  {
+    "request_id": "REQ-2026-104",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-07T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-105",
+    "category": "late_checkout",
+    "status": "CONFIRMED",
+    "decision_code": "LATE_CHECKOUT_CONFIRMED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-08T11:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-106",
+    "category": "special_care",
+    "status": "MANUAL_REVIEW",
+    "decision_code": "SPECIAL_CARE_REVIEW",
+    "priority": "HIGH",
+    "calendar_start": "2026-10-26T22:00:00+08:00",
+    "email_template": "review"
+  },
+  {
+    "request_id": "REQ-2026-107",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-05T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-108",
+    "category": "room_preference",
+    "status": "CONFIRMED",
+    "decision_code": "PREFERENCE_NOTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-03T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-109",
+    "category": "pet_stay",
+    "status": "CONFIRMED",
+    "decision_code": "PET_STAY_CONFIRMED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-06T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-110",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-01T14:30:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-111",
+    "category": "room_preference",
+    "status": "MANUAL_REVIEW",
+    "decision_code": "LINKED_BOOKING_CHECK",
+    "priority": "NORMAL",
+    "calendar_start": "2026-10-27T20:00:00+08:00",
+    "email_template": "review"
+  },
+  {
+    "request_id": "REQ-2026-112",
+    "category": "room_preference",
+    "status": "CONFIRMED",
+    "decision_code": "PREFERENCE_NOTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-02T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-113",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "HIGH",
+    "calendar_start": "2026-11-05T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-114",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-03T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-115",
+    "category": "early_checkin",
+    "status": "ALTERNATIVE_OFFERED",
+    "decision_code": "NO_READY_ROOM",
+    "priority": "HIGH",
+    "calendar_start": "2026-11-04T11:30:00+08:00",
+    "email_template": "alternative"
+  },
+  {
+    "request_id": "REQ-2026-116",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-09T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-117",
+    "category": "special_care",
+    "status": "MANUAL_REVIEW",
+    "decision_code": "SPECIAL_CARE_REVIEW",
+    "priority": "NORMAL",
+    "calendar_start": "2026-10-27T20:00:00+08:00",
+    "email_template": "review"
+  },
+  {
+    "request_id": "REQ-2026-118",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-08T20:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-119",
+    "category": "service_request",
+    "status": "CONFIRMED",
+    "decision_code": "SERVICE_ACCEPTED",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-01T09:00:00+08:00",
+    "email_template": "confirmed"
+  },
+  {
+    "request_id": "REQ-2026-120",
+    "category": "late_checkout",
+    "status": "ALTERNATIVE_OFFERED",
+    "decision_code": "LATE_CHECKOUT_UNAVAILABLE",
+    "priority": "NORMAL",
+    "calendar_start": "2026-11-15T11:00:00+08:00",
+    "email_template": "alternative"
+  }
+]
