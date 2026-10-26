@@ -1,0 +1,21 @@
+policy_key,value,description
+hotel_name,Harborlight Hotel,Name shown in guest emails
+hotel_timezone_offset,+08:00,UTC offset for calendar events (Manila)
+standard_checkin_time,14:00,Normal check-in time (24h)
+earliest_early_checkin,10:00,Earlier requests are offered an alternative
+standard_checkout_time,11:00,Normal check-out time (24h)
+latest_late_checkout,16:00,Latest late check-out the desk can approve
+early_checkin_enabled,true,Allow early check-in requests
+late_checkout_enabled,true,Allow late check-out requests
+upgrades_enabled,true,Allow room upgrade requests
+upgrade_hold_hours,24,Hours an upgrade hold waits for guest approval
+pets_allowed,true,Allow pet stays
+pet_max_weight_lbs,25,Heaviest pet accepted without staff review
+pet_fee_per_night,"PHP 1,500",Pet fee quoted to the guest
+services_enabled,true,Accept amenity and service requests
+service_prep_time,09:00,Default staff prep time on the arrival date
+review_sla_hours_high,2,Hours to review a HIGH priority request
+review_sla_hours_normal,24,Hours to review a NORMAL priority request
+high_priority_keywords,"allerg,anaphyla,wheelchair,mobility,medical,urgent",Words in request details that raise priority to HIGH
+front_desk_contact,frontdesk@harborlight.example,Contact shown in guest emails
+demo_recipient_override,,Demo inbox that receives every guest email. Blank sends to the guest address.

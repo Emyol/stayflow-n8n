@@ -1,0 +1,56 @@
+{
+  "name": "Track C –  Intelligent Customer Concierge",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "48bd76b3-3d38-4690-862c-13eecc2613af",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://khylepanganiban.app.n8n.cloud/webhook/GuestRequest",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "cffdd424-2fa2-475a-85d9-e30252b2a8d3",
+      "name": "Guest Request Submissions"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Guest Request Submissions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c3352af8-2169-4b60-b768-b36124f4b3b6",
+  "meta": {
+    "instanceId": "649459bbac320f994c5774f795d79b35f65db9585c78a2d6292136880fa583a1"
+  },
+  "nodeGroups": [],
+  "id": "POSiUwJp3fLJBSKZ",
+  "tags": []
+}

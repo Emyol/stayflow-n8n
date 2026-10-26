@@ -1,0 +1,7 @@
+inventory_key,date,room_type,total_rooms,reserved_rooms,blocked_rooms,active_holds,early_ready_rooms
+2026-11-02|Deluxe King Suite,2026-11-02,Deluxe King Suite,10,7,1,0,1
+2026-11-04|Standard Queen,2026-11-04,Standard Queen,20,18,2,0,0
+2026-11-03|Ocean View Suite,2026-11-03,Ocean View Suite,4,4,0,0,0
+2026-11-04|Ocean View Suite,2026-11-04,Ocean View Suite,4,3,1,0,0
+2026-11-08|Penthouse Suite,2026-11-08,Penthouse Suite,2,1,0,0,0
+2026-11-15|Penthouse Suite,2026-11-15,Penthouse Suite,2,2,0,0,0

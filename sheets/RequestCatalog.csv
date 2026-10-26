@@ -1,0 +1,18 @@
+request_type_label,category,base_priority,schedule_from_text
+Early Check-In,early_checkin,NORMAL,false
+Late Check-Out,late_checkout,NORMAL,false
+Room Upgrade,room_upgrade,NORMAL,false
+Quiet Room / Location,room_preference,NORMAL,false
+High-Floor Request,room_preference,NORMAL,false
+Connecting Rooms,room_preference,NORMAL,false
+Amenity Request,service_request,NORMAL,false
+Bedding Preference,service_request,NORMAL,false
+Workstation Setup,service_request,NORMAL,false
+Special Occasion,service_request,NORMAL,false
+Laundry & Dry Cleaning,service_request,NORMAL,false
+Luggage Storage & Hold,service_request,NORMAL,false
+Airport Transfer,service_request,NORMAL,true
+In-Room Dining Booking,service_request,NORMAL,true
+Pet Accommodation,pet_stay,NORMAL,false
+Dietary Preference,special_care,NORMAL,false
+Accessibility Request,special_care,HIGH,false
