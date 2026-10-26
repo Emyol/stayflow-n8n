@@ -1,6 +1,6 @@
 // Builds the StayFlow n8n workflow JSON from src/ modules.
 // Usage: npm run build -- local|cloud   →   dist/stayflow-<env>.json
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -114,8 +114,15 @@ function sticky(name, position, width, height, content, color) {
 const isString = { type: 'string', operation: 'equals' };
 const isTrue = { type: 'boolean', operation: 'true', singleValue: true };
 
+function readConfig(env) {
+  if (!existsSync(join(ROOT, 'config', `${env}.json`))) {
+    throw new Error(`config/${env}.json not found. Copy config/local.example.json to config/${env}.json and fill in your n8n credential ids and calendar id.`);
+  }
+  return readJson(`config/${env}.json`);
+}
+
 export function buildWorkflow(env) {
-  const config = readJson(`config/${env}.json`);
+  const config = readConfig(env);
   const starter = readJson('fixtures/organizer-starter-template.json');
   const [trigger, http] = starter.nodes;
   const branchY = i => 300 + (i - 4.5) * 140;

@@ -1,0 +1,10 @@
+{
+  "workflowId": "stayflowTrackC01",
+  "spreadsheetId": "18wno6DELat3xTkZs62UcYKlw_iRo9W2DtaCTZP2iyvk",
+  "calendarId": "your.google.account@gmail.com",
+  "credentials": {
+    "googleSheetsOAuth2Api": { "id": "YOUR_SHEETS_CREDENTIAL_ID", "name": "Google Sheets (StayFlow)" },
+    "googleCalendarOAuth2Api": { "id": "YOUR_CALENDAR_CREDENTIAL_ID", "name": "Google Calendar (StayFlow)" },
+    "gmailOAuth2": { "id": "YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail (StayFlow)" }
+  }
+}

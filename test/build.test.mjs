@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildWorkflow } from '../scripts/build-workflow.mjs';
 
-const wf = buildWorkflow('local');
+const wf = buildWorkflow('local.example');
 const node = name => wf.nodes.find(n => n.name === name);
 const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj[k]]));
 const starter = JSON.parse(readFileSync(new URL('../fixtures/organizer-starter-template.json', import.meta.url)));
@@ -40,8 +40,8 @@ test('reference reads run once and the log read tolerates an empty tab', () => {
   assert.equal(node('Read Request Log').alwaysOutputData, true);
 });
 
-test('local build carries credential ids; cloud build carries names only', () => {
-  assert.equal(node('Create Staff Task').credentials.googleCalendarOAuth2Api.id, '0CSUjXdiJ80r648M');
+test('local build carries credential ids from config; cloud build carries names only', () => {
+  assert.equal(node('Create Staff Task').credentials.googleCalendarOAuth2Api.id, 'YOUR_CALENDAR_CREDENTIAL_ID');
   const cloud = buildWorkflow('cloud');
   const gmail = cloud.nodes.find(n => n.name === 'Send Guest Email').credentials.gmailOAuth2;
   assert.equal(gmail.id, undefined);
@@ -72,7 +72,7 @@ test('every Code node body parses', () => {
 });
 
 test('calendar id is an email-style id that n8n accepts in id mode', () => {
-  for (const env of ['local', 'cloud']) {
+  for (const env of ['local.example', 'cloud']) {
     const calendar = buildWorkflow(env).nodes.find(n => n.name === 'Create Staff Task').parameters.calendar.value;
     assert.match(calendar, /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i, env);
   }
@@ -89,4 +89,8 @@ test('each rules node calls decideBatch with its own route', () => {
 
 test('node names are unique', () => {
   assert.equal(new Set(wf.nodes.map(n => n.name)).size, wf.nodes.length);
+});
+
+test('a missing per-machine config explains how to create it', () => {
+  assert.throws(() => buildWorkflow('does-not-exist'), /config\/local\.example\.json/);
 });

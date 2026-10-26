@@ -1,3 +1,5 @@
 .superpowers/
 dist/
 node_modules/
+# Per-machine n8n credential ids; copy config/local.example.json
+config/local.json
