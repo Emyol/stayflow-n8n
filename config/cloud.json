@@ -1,0 +1,9 @@
+{
+  "spreadsheetId": "18wno6DELat3xTkZs62UcYKlw_iRo9W2DtaCTZP2iyvk",
+  "calendarId": "primary",
+  "credentials": {
+    "googleSheetsOAuth2Api": { "name": "Google Sheets (StayFlow)" },
+    "googleCalendarOAuth2Api": { "name": "Google Calendar (StayFlow)" },
+    "gmailOAuth2": { "name": "Gmail (StayFlow)" }
+  }
+}
