@@ -45,7 +45,8 @@ Temporarily set **Create Staff Task** → calendar to `stayflow-missing-calendar
 ## Move to the organizer cloud
 
 1. Decide which Google account the cloud credentials will sign in as. If it is not the account that owns the StayFlow sheet and calendar, share the spreadsheet (Editor) and the calendar ("Make changes to events") with it, and set `calendarId` in `config/cloud.json` to a calendar that account can write to. Then `npm run build -- cloud`.
-2. In https://khylepanganiban.app.n8n.cloud create a new workflow, open `dist/stayflow-cloud.json`, copy everything and paste onto the canvas.
-3. Create the three Google credentials there (Sheets, Calendar, Gmail) and select them on every Google node; nodes show a warning until a credential is picked.
-4. In the workflow settings, set the timezone to Asia/Manila if it did not carry over.
-5. Reset the sheet, run once, and confirm the expected first-run result above before recording.
+2. **Create the three Google credentials first**, named exactly `Google Sheets (StayFlow)`, `Google Calendar (StayFlow)` and `Gmail (StayFlow)`. On import, n8n binds all 9 Google nodes to credentials by name (verified locally), so exact names save picking a credential on every node.
+3. In https://khylepanganiban.app.n8n.cloud create a new workflow, then use the workflow menu → **Import from File** and pick `dist/stayflow-cloud.json` (about 240 KB). Pasting the JSON onto the canvas also works.
+4. Open any Google node with a warning icon and select the credential. With exact names there should be none.
+5. In the workflow settings, check the timezone is Asia/Manila.
+6. Reset the sheet, run once, and confirm the expected first-run result above before recording.
