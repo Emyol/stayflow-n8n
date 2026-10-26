@@ -5,10 +5,13 @@ Everything below was executed against the local Docker n8n on 2026-10-26.
 ## Build
 
 ```bash
-npm test                  # 82 tests, all offline
+npm test                  # 83 tests, all offline
+cp config/local.example.json config/local.json   # once per machine; fill in your n8n credential ids + calendar id
 npm run build -- local    # dist/stayflow-local.json  (credential ids for this machine)
 npm run build -- cloud    # dist/stayflow-cloud.json  (credential names only)
 ```
+
+Find your credential ids with the n8n MCP `list_credentials` tool, or in the URL when you open a credential in n8n.
 
 Edit logic in `src/`, never inside the n8n Code nodes: the build overwrites them.
 
