@@ -24,12 +24,13 @@ Status as of **2026-10-27**. Deadline: **Saturday 2026-10-31, 10:00 PM Manila** 
 Roles follow the blueprint: Automation lead, Data/Integration lead, QA/Pitch lead.
 
 1. ~~Deploy to the organizer cloud~~: done 2026-10-27 (see above). After any later change, rebuild, re-import and re-check the Gmail credential (see the runbook).
+   - **The known-gap fixes on `dev` are not on the cloud yet.** Run `npm run build -- cloud` and re-import before recording. To keep the workflow URL above, open that workflow, select all nodes, delete them, then paste the contents of `dist/stayflow-cloud.json` onto the canvas and save.
 2. **Record the 2–5 minute video** (QA/Pitch lead). Required content:
    - the workflow executing live on the cloud: the canvas, the run, then the sheet rows, a calendar event and an email
    - spoken answers to the three Track C questions; draft answers are in `StayFlow_Track_C_Buildathon_Blueprint.md` §13
    - the 60-second pitch (`video/`) works as the opener. It says "84 seconds", which is the local timing; the cloud run takes about 47 s. Either keep the pitch as the local measurement or update `scenes/Results.tsx` and the results voiceover line so they match the cloud (see `video/README.md`).
-   - before recording, check that `GuestRequests` is empty and `RoomInventory!H2` is `1`; otherwise reset them as in the runbook.
-3. **Take one full-canvas screenshot** of the cloud workflow (Automation lead). Expanding the sticky notes on the canvas with the three track answers would make it stronger; see deferred items below.
+   - before recording, check that `GuestRequests` is empty, `RoomInventory!H2` is `1` and `RoomInventory!G6` is `0`; otherwise reset them as in the runbook.
+3. **Take one full-canvas screenshot** of the cloud workflow (Automation lead). The build now puts the three track answers on the canvas as sticky notes (Q1, Q2, Q3, below Intake), so take it after the re-import.
 4. **Write the one-page documentation** (QA/Pitch lead). The outline is in the blueprint §14.
 5. **Submit the form** with the team name, members, screenshot, video and workflow URL (any member, same team name for everyone).
 
@@ -50,18 +51,16 @@ Roles follow the blueprint: Automation lead, Data/Integration lead, QA/Pitch lea
 - The Calendar node rejects `primary` as a calendar id in id mode. Use the account's email address.
 - n8n hides workflows from MCP unless `availableInMCP` is set. The build sets it.
 - `n8n import:workflow` replaces the workflow in place because the build uses a fixed id (`stayflowTrackC01`). Reload an open editor tab after importing.
-- Testing writes real rows, events and emails. The reset steps are in the runbook: clear `GuestRequests`, set `RoomInventory!H2` back to `1`, and delete the `— REQ-2026-…` calendar events.
+- Testing writes real rows, events and emails. The reset steps are in the runbook: clear `GuestRequests`, set `RoomInventory!H2` back to `1` and `RoomInventory!G6` back to `0`, and delete the `— REQ-2026-…` calendar events.
 - The Claude Sheets connector and ElevenLabs both rate-limit per minute. Space out calls.
 
 ## Deferred items (known, not fixed)
 
-- A malformed `hotel_timezone_offset` policy crashes the Plan node instead of falling back to `+08:00`.
-- Blank inventory cells read as 0, so the guest is told "fully booked" instead of the request going to review.
-- Late check-outs don't reserve anything, so two on the same date and room type can both be confirmed.
-- The spec wanted the pitch answers visible on the canvas; the sticky notes are one-liners.
-- A catalog category with no matching Switch output gets the reason "not in the request catalog".
-- An empty reference tab ends the run silently with no output.
 - Not tested live: a run where some Calendar calls succeed and others fail.
+- Rooms taken in one run are counted per rules branch. A late check-out and an upgrade offer for the same date and room type in the same run both see the room as free; the next run sees both holds.
+- Late check-out holds in `active_holds` (confirmed, or offered and awaiting the guest's reply) are not released automatically. Staff clear them after the departure date or when the guest declines, the same way as upgrade holds.
+
+Closed on `dev` (2026-10-28), pending re-import to the cloud: malformed `hotel_timezone_offset` falls back to `+08:00`; blank inventory cells go to review as `INVENTORY_INCOMPLETE`; confirmed and offered late check-outs hold a room in `active_holds`; a catalog category with no rules branch gets its own reason; an empty reference tab stops the run and names the tab; the three track answers are sticky notes on the canvas.
 
 ## Where decisions are recorded
 
