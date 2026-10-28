@@ -51,3 +51,16 @@ test('edge-case submissions all get an allowed status', () => {
     assert.ok(['CONFIRMED', 'ALTERNATIVE_OFFERED', 'MANUAL_REVIEW', 'INVALID', 'DUPLICATE'].includes(item.status), item.request_id);
   }
 });
+
+test('a late check-out and an upgrade in one run cannot both hold the last spare room', () => {
+  const sub = id => structuredClone(payload.submissions.find(s => s.request_id === id));
+  const late = sub('REQ-2026-105');
+  const upgrade = sub('REQ-2026-102');
+  upgrade.request_id = 'T-UPG';
+  upgrade.booking = { ...upgrade.booking, confirmation_number: 'HTL-7777', room_type: 'Standard Queen',
+    check_in_date: '2026-11-08', check_out_date: '2026-11-09', request_details: 'Please upgrade us to the Penthouse Suite.' };
+  const result = runPipeline({ submissions: [late, upgrade], sheets, now: NOW });
+  assert.equal(byId(result.planned, 'REQ-2026-105').decision_code, 'LATE_CHECKOUT_CONFIRMED');
+  assert.equal(byId(result.planned, 'T-UPG').decision_code, 'UPGRADE_UNAVAILABLE');
+  assert.deepEqual(result.inventoryWrites, [{ inventory_key: '2026-11-08|Penthouse Suite', active_holds: 1 }]);
+});

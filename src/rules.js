@@ -23,7 +23,7 @@ function incompleteInventory(key, row, fields, action, extra) {
   var blank = blankInventoryFields(row, fields);
   if (!blank.length) return null;
   return outcome('MANUAL_REVIEW', 'INVENTORY_INCOMPLETE',
-    'Inventory row ' + key + ' has blank ' + blank.join(', '), action, extra);
+    'Inventory row ' + key + ' has blank or invalid ' + blank.join(', '), action, extra);
 }
 
 function fixedDecisionReason(route, item) {
@@ -232,8 +232,20 @@ var CATEGORY_RULES = {
   special_care: decideSpecialCare,
 };
 
+// Rooms already held by other branches earlier in this run, by inventory key,
+// so a late check-out and an upgrade cannot both take the last spare room.
+function heldRooms(items) {
+  var held = new Map();
+  items.forEach(function (item) {
+    (item.inventory_changes || []).forEach(function (change) {
+      if (change.field === 'active_holds') held.set(change.inventory_key, (held.get(change.inventory_key) || 0) + change.delta);
+    });
+  });
+  return held;
+}
+
 function decideBatch(route, items, ctx) {
-  var state = { earlyAllocated: new Map(), holds: new Map() };
+  var state = { earlyAllocated: new Map(), holds: new Map(ctx.priorHolds || []) };
   return items.map(function (item) {
     var decision;
     var fixedRoute = FIXED_DECISIONS[route] ? route : (CATEGORY_RULES[route] ? null : 'other');

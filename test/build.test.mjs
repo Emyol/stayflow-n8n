@@ -122,7 +122,7 @@ test('the Manual Review reason expression matches rules.js', () => {
   const expr = node('Decision: Manual Review').parameters.assignments.assignments
     .find(a => a.name === 'decision_reason').value.replace(/^=\{\{([\s\S]*)\}\}$/, '$1');
   const evaluate = $json => new Function('$json', `return (${expr});`)($json);
-  for (const item of [{ request_type: 'Spa Booking', category: 'spa' }, { request_type: 'Valet', category: 'other' }]) {
+  for (const item of [{ request_type: 'Spa Booking', category: 'spa' }, { request_type: 'Valet', category: 'other' }, { request_type: 'Valet', category: '' }]) {
     assert.equal(evaluate(item), fixedDecisionReason('other', item), item.category);
   }
 });
@@ -159,4 +159,30 @@ test('inventory writes add up holds from every branch, even when Collect runs on
 test('Collect Inventory Changes does not hide a failed read of a branch that ran', () => {
   const $ = name => ({ isExecuted: true, all: () => { if (name.startsWith('Rules')) throw new Error('read failed'); return readSheet('RoomInventory').map(json => ({ json })); } });
   assert.throws(() => new Function('$', '$input', node('Collect Inventory Changes').parameters.jsCode)($, { all: () => [] }), /read failed/);
+});
+
+test('Rules: Room Upgrade sees the holds Rules: Late Check-Out took earlier in the run', () => {
+  const upgrade = { request_id: 'T-UPG', route: 'room_upgrade', category: 'room_upgrade', request_type: 'Room Upgrade',
+    confirmation_number: 'HTL-7777', room_type: 'Standard Queen', check_in_date: '2026-11-08', check_out_date: '2026-11-09',
+    request_details: 'Please upgrade us to the Penthouse Suite.', priority: 'NORMAL' };
+  const ran = {
+    'Read Hotel Policies': readSheet('HotelPolicies'), 'Read Room Inventory': readSheet('RoomInventory'), 'Read Request Catalog': readSheet('RequestCatalog'),
+    'Rules: Late Check-Out': [{ inventory_changes: [{ inventory_key: '2026-11-08|Penthouse Suite', field: 'active_holds', delta: 1 }] }],
+  };
+  const $ = name => ({
+    isExecuted: name in ran,
+    all: () => { if (!(name in ran)) throw new Error(`Referenced node is unexecuted: ${name}`); return ran[name].map(json => ({ json })); },
+  });
+  const [out] = new Function('$', '$input', node('Rules: Room Upgrade').parameters.jsCode)($, { all: () => [{ json: upgrade }] });
+  assert.equal(out.json.decision_code, 'UPGRADE_UNAVAILABLE');
+});
+
+test('rules nodes that take no holds never read the hold branches', () => {
+  for (const name of ['Rules: Early Check-In', 'Rules: Room Preference', 'Rules: Service Request', 'Rules: Pet Stay', 'Rules: Special Care']) {
+    const $ = n => {
+      if (n.startsWith('Rules')) throw new Error(`${name} read ${n}`);
+      return { all: () => readSheet({ 'Read Hotel Policies': 'HotelPolicies', 'Read Room Inventory': 'RoomInventory', 'Read Request Catalog': 'RequestCatalog' }[n]).map(json => ({ json })) };
+    };
+    assert.doesNotThrow(() => new Function('$', '$input', node(name).parameters.jsCode)($, { all: () => [] }), name);
+  }
 });

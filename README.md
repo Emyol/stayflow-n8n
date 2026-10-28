@@ -11,7 +11,7 @@ StayFlow pulls the organizer's batch of guest requests (early check-in, upgrades
 Needs Node 22+. The core project has no npm dependencies.
 
 ```bash
-npm test                                   # 97 offline tests, including the golden test over all 20 organizer requests
+npm test                                   # 103 offline tests, including the golden test over all 20 organizer requests
 cp config/local.example.json config/local.json   # then fill in your own n8n credential ids
 npm run build -- local                     # dist/stayflow-local.json  → import into your own n8n
 npm run build -- cloud                     # dist/stayflow-cloud.json  → paste into the organizer cloud

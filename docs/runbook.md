@@ -5,7 +5,7 @@ Everything below was executed against the local Docker n8n on 2026-10-26.
 ## Build
 
 ```bash
-npm test                  # 83 tests, all offline
+npm test                  # 103 tests, all offline
 cp config/local.example.json config/local.json   # once per machine; fill in your n8n credential ids + calendar id
 npm run build -- local    # dist/stayflow-local.json  (credential ids for this machine)
 npm run build -- cloud    # dist/stayflow-cloud.json  (credential names only)

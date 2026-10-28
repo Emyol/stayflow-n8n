@@ -84,3 +84,14 @@ test('empty reference tabs are named; the seeded sheets have none', () => {
   const empty = { catalog: buildCatalog([{}]), policies: buildPolicies([{}]), inventory: buildInventory([{}]) };
   assert.deepEqual(emptyReferenceTabs(empty), ['RequestCatalog', 'HotelPolicies', 'RoomInventory']);
 });
+
+test('a count that is not a whole number of rooms reads as unknown', () => {
+  const rows = ['n/a', '3 rooms', '-1', '1.5'].map((v, i) => ({ date: `2026-11-0${i + 1}`, room_type: 'Suite', early_ready_rooms: v }));
+  for (const row of buildInventory(rows).values()) assert.equal(row.early_ready_rooms, null, row.date);
+});
+
+test('an out-of-range timezone offset falls back too', () => {
+  assert.equal(policyOffset({ hotel_timezone_offset: '+15:00' }), '+08:00');
+  assert.equal(policyOffset({ hotel_timezone_offset: '+08:60' }), '+08:00');
+  assert.equal(policyOffset({ hotel_timezone_offset: '+14:00' }), '+14:00');
+});

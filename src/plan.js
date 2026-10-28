@@ -64,8 +64,14 @@ function calendarPlan(item, ctx) {
   return null;
 }
 
-function calendarDescription(item) {
-  return [
+function calendarDescription(item, policies) {
+  // a malformed offset falls back to +08:00 to keep the run going; staff still
+  // need to see that it did. A blank one is the documented Manila default
+  var raw = String(policies.hotel_timezone_offset == null ? '' : policies.hotel_timezone_offset).trim();
+  var warning = raw && raw !== policyOffset(policies)
+    ? ['Warning: hotel_timezone_offset "' + raw + '" is not a valid +HH:MM offset; times use ' + policyOffset(policies) + '. Fix it in HotelPolicies.']
+    : [];
+  return warning.concat([
     'Guest: ' + item.guest_name + ' <' + item.guest_email + '>',
     'Booking: ' + item.confirmation_number + ', ' + item.room_type + ', ' + item.check_in_date + ' to ' + item.check_out_date,
     'Request: ' + item.request_type,
@@ -73,7 +79,7 @@ function calendarDescription(item) {
     'Decision: ' + item.status + ' (' + item.decision_code + ')',
     'Reason: ' + item.decision_reason,
     'Staff action: ' + item.staff_action,
-  ].join('\n');
+  ]).join('\n');
 }
 
 function planActions(item, ctx) {
@@ -90,7 +96,7 @@ function planActions(item, ctx) {
     : '';
   planned.calendar_start = calendar ? calendar.when.start : '';
   planned.calendar_end = calendar ? calendar.when.end : '';
-  planned.calendar_description = calendar ? calendarDescription(item) : '';
+  planned.calendar_description = calendar ? calendarDescription(item, p) : '';
   planned.calendar_status = calendar ? 'PENDING' : 'NOT_NEEDED';
 
   var template = STATUS_TEMPLATES[item.status] || (item.status === 'INVALID' && item.email_valid ? 'needs_info' : '');

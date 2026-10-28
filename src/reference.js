@@ -81,13 +81,13 @@ function buildInventory(rows) {
   return inventory;
 }
 
-// A blank or non-numeric cell is unknown (null), never 0: reading it as 0
-// would tell the guest "fully booked" when nobody knows.
+// Anything but a whole number of rooms is unknown (null), never 0: reading it
+// as 0 would tell the guest "fully booked" when nobody knows.
 function inventoryCount(raw) {
   var text = String(raw == null ? '' : raw).trim();
   if (text === '') return null;
   var value = Number(text);
-  return isFinite(value) ? value : null;
+  return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 function blankInventoryFields(row, fields) {

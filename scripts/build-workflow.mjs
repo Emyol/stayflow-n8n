@@ -138,20 +138,20 @@ export function buildWorkflow(env) {
     sticky('Note: Q1 Routing', [-60, 520], 560, 600, [
       '## Q1 How routing stays policy-compliant',
       'Classify maps each request label to a category through the RequestCatalog tab. **Route by Category** (Switch) sends it to one rules node per category, with a fallback to staff review for anything unknown.',
-      'Each rules node reads its limits from the **HotelPolicies** tab (check-in and check-out times, upgrade hold hours, pet weight) and from RoomInventory, then returns a `decision_code`, status, reason and staff action. A blank or missing policy goes to review instead of a guess.',
+      'Each rules node reads its limits from the **HotelPolicies** tab (check-in and check-out times, upgrade hold hours, pet weight) and from RoomInventory, then returns a `decision_code`, status, reason and staff action. A blank or missing policy that a rule depends on goes to review instead of a guess.',
       'Plan picks the email template and the Calendar task from that `decision_code`, and injects only escaped guest text. The wording comes from the decision, so an email cannot promise a room the rules did not reserve.',
     ].join('\n\n'), 7),
     sticky('Note: Q2 Edge cases', [520, 520], 560, 600, [
       '## Q2 Conflicts, full bookings, duplicates',
       '- **Duplicates:** a request ID already in GuestRequests goes to *Already Processed* with no side effects. The same booking asking for the same request type again is logged as `duplicate` of the first, with no second task or email.',
-      '- **Conflicting availability:** rules count rooms already taken in this run, so two guests never get the last ready room. Late check-outs (confirmed or offered) and upgrade offers write `active_holds` to RoomInventory, so the next run sees one room fewer.',
+      '- **Conflicting availability:** rules count rooms already taken in this run, including holds from the other request types, so two guests never get the last ready or spare room. Late check-outs (confirmed or offered) and upgrade offers write `active_holds` to RoomInventory, so the next run sees one room fewer.',
       '- **Fully booked:** no spare room gives an alternative (luggage storage, current room), never a confirmation.',
       '- **Bad data:** a missing row or blank count gives `INVENTORY_NOT_FOUND` / `INVENTORY_INCOMPLETE` staff review. An empty reference tab stops the run with its name.',
       '- **Failed Calendar or Gmail:** recorded as `FAILED` in the log, never as sent.',
     ].join('\n'), 3),
     sticky('Note: Q3 Impact and scale', [1100, 520], 600, 600, [
       '## Q3 Front-desk impact and scale',
-      'One run reads every open request, decides it, logs it, books the staff task and emails the guest. The demo batch of 20 requests took about 47 s on this instance, and re-running it changed nothing.',
+      'One run reads every open request, decides it, logs it, books the staff task and emails the guest. The demo batch of 20 requests took about 47 s on this instance (2026-10-27 build), and re-running it changed nothing.',
       'Staff only handle what the rules send to review, and every request has an auditable row in GuestRequests with its reason and delivery status.',
       'To scale across a chain, the rules are data: add a property column to the tabs, or swap the Sheets reads for a **PMS** API (Opera, Cloudbeds, Mews) behind the same nodes. RoomInventory then becomes the PMS availability call, with atomic room allocation that Sheets cannot provide.',
     ].join('\n\n'), 5),

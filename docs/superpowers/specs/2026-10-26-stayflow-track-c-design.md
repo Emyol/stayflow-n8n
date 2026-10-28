@@ -185,7 +185,7 @@ For each normalized request, in payload order:
 | invalid | INVALID. Guest email only if the address itself is valid ("we need more details") | |
 | duplicate | DUPLICATE. No calendar, no email | |
 
-**In-batch allocation ledger:** the early check-in, late check-out and upgrade branch nodes each process all their items in one run and keep a running ledger, so two requests in one batch can't both take the last ready room, late check-out room or upgrade room. Resulting inventory changes are written back to `RoomInventory` (`early_ready_rooms − n`, `active_holds + n`). `Collect Inventory Changes` runs once per incoming branch, so it reads every rules branch that has run so far and each write carries the full total.
+**In-batch allocation ledger:** the early check-in, late check-out and upgrade branch nodes each process all their items in one run and keep a running ledger, so two requests in one batch can't both take the last ready room, late check-out room or upgrade room. Resulting inventory changes are written back to `RoomInventory` (`early_ready_rooms − n`, `active_holds + n`). `Collect Inventory Changes` runs once per incoming branch, so it reads every rules branch that has run so far and each write carries the full total. The late check-out and upgrade nodes also start their ledger from the holds the other one took earlier in the run, so the two request types cannot both take the last spare room.
 
 ### 5.4 Staff task (Calendar) plan
 All times are in hotel local time (+08:00), 30-minute events unless noted. Titles carry `[HIGH]` when priority is HIGH, plus `request_id` and confirmation number.

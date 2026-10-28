@@ -15,9 +15,14 @@ export function runPipeline({ submissions, sheets, now }) {
   const classified = M.classifyBatch(submissions.map(M.normalizeSubmission), { ...ctx, log: M.buildLogIndex(sheets.log) });
   const alreadyProcessed = classified.filter(c => c.route === 'already_processed');
   const fresh = classified.filter(c => c.route !== 'already_processed');
-  const routes = [...new Set(fresh.map(c => c.route))];
-  const decidedByRoute = Object.fromEntries(routes.map(route =>
-    [route, M.decideBatch(route, fresh.filter(c => c.route === route), ctx)]));
+  // Switch output order, which is the order n8n runs the branches in
+  const order = ['invalid', 'duplicate', 'early_checkin', 'late_checkout', 'room_upgrade', 'room_preference', 'service_request', 'pet_stay', 'special_care'];
+  const routes = [...new Set(fresh.map(c => c.route))].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  const decidedByRoute = {};
+  for (const route of routes) {
+    const priorHolds = M.heldRooms(['late_checkout', 'room_upgrade'].filter(r => r !== route).flatMap(r => decidedByRoute[r] || []));
+    decidedByRoute[route] = M.decideBatch(route, fresh.filter(c => c.route === route), { ...ctx, priorHolds });
+  }
   const planned = Object.values(decidedByRoute).flat().map(item => M.planActions(item, ctx));
   const inventoryWrites = M.collectInventoryChanges(
     ['early_checkin', 'late_checkout', 'room_upgrade'].flatMap(route => decidedByRoute[route] || []), ctx.inventory);
