@@ -1,6 +1,6 @@
 // Runs the same steps as the n8n workflow, in Node, for golden tests:
 // normalize → classify → split off already processed → rules per route →
-// plan actions → inventory writes from the early check-in and upgrade branches.
+// plan actions → inventory writes from the early check-in, late check-out and upgrade branches.
 import { loadModules } from '../../scripts/lib/modules.mjs';
 
 const M = loadModules(['time', 'text', 'reference', 'intake', 'rules', 'email', 'plan', 'inventory']);
@@ -20,6 +20,6 @@ export function runPipeline({ submissions, sheets, now }) {
     [route, M.decideBatch(route, fresh.filter(c => c.route === route), ctx)]));
   const planned = Object.values(decidedByRoute).flat().map(item => M.planActions(item, ctx));
   const inventoryWrites = M.collectInventoryChanges(
-    [...(decidedByRoute.early_checkin || []), ...(decidedByRoute.room_upgrade || [])], ctx.inventory);
+    ['early_checkin', 'late_checkout', 'room_upgrade'].flatMap(route => decidedByRoute[route] || []), ctx.inventory);
   return { planned, alreadyProcessed, inventoryWrites };
 }

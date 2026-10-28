@@ -17,9 +17,20 @@ var REQUIRED_POLICIES = {
   pet_stay: [['pets_allowed', 'bool'], ['pet_max_weight_lbs', 'number'], ['pet_fee_per_night', 'text']],
 };
 
+var AVAILABILITY_FIELDS = ['total_rooms', 'reserved_rooms', 'blocked_rooms', 'active_holds'];
+
+function incompleteInventory(key, row, fields, action, extra) {
+  var blank = blankInventoryFields(row, fields);
+  if (!blank.length) return null;
+  return outcome('MANUAL_REVIEW', 'INVENTORY_INCOMPLETE',
+    'Inventory row ' + key + ' has blank ' + blank.join(', '), action, extra);
+}
+
 function fixedDecisionReason(route, item) {
   if (route === 'invalid') return item.validation_errors.join('; ');
   if (route === 'duplicate') return 'Same booking and request type as ' + item.duplicate_of;
+  // keep in step with DECISION_REASONS.other in scripts/build-workflow.mjs
+  if (item.category && item.category !== 'other') return 'Request catalog category "' + item.category + '" has no rules branch';
   return 'Request type "' + item.request_type + '" is not in the request catalog';
 }
 
@@ -69,6 +80,8 @@ function decideEarlyCheckin(item, ctx, state) {
     return outcome('MANUAL_REVIEW', 'INVENTORY_NOT_FOUND',
       'No inventory row for ' + item.room_type + ' on ' + item.check_in_date, 'Check room readiness manually', extra);
   }
+  var incomplete = incompleteInventory(key, row, ['early_ready_rooms'], 'Check room readiness manually', extra);
+  if (incomplete) return incomplete;
   var allocated = state.earlyAllocated.get(key) || 0;
   if (row.early_ready_rooms - allocated > 0) {
     state.earlyAllocated.set(key, allocated + 1);
@@ -82,7 +95,7 @@ function decideEarlyCheckin(item, ctx, state) {
     'Hold luggage on arrival; room ready at ' + standard, extra);
 }
 
-function decideLateCheckout(item, ctx) {
+function decideLateCheckout(item, ctx, state) {
   var p = ctx.policies;
   var standard = policyTime(p, 'standard_checkout_time');
   var latest = policyTime(p, 'latest_late_checkout');
@@ -105,20 +118,26 @@ function decideLateCheckout(item, ctx) {
     return outcome('MANUAL_REVIEW', 'INVENTORY_NOT_FOUND',
       'No inventory row for ' + item.room_type + ' on ' + item.check_out_date, 'Check departure-day occupancy manually', extra);
   }
-  if (available(row) > 0 && toMinutes(time) > toMinutes(latest)) {
+  var incomplete = incompleteInventory(key, row, AVAILABILITY_FIELDS, 'Check departure-day occupancy manually', extra);
+  if (incomplete) return incomplete;
+  // a confirmed or offered late check-out keeps a room off the market on the
+  // departure day, so it takes a hold like an upgrade and later ones see one fewer
+  if (available(row) - (state.holds.get(key) || 0) <= 0) {
+    return outcome('ALTERNATIVE_OFFERED', 'LATE_CHECKOUT_UNAVAILABLE',
+      item.room_type + ' is fully booked on ' + item.check_out_date,
+      'Offer luggage storage after ' + standard + ' check-out', extra);
+  }
+  state.holds.set(key, (state.holds.get(key) || 0) + 1);
+  extra.inventory_changes = [{ inventory_key: key, field: 'active_holds', delta: 1 }];
+  if (toMinutes(time) > toMinutes(latest)) {
     extra.offered_time = latest;
     return outcome('ALTERNATIVE_OFFERED', 'LATE_CHECKOUT_TOO_LATE',
-      'Requested ' + time + ' is later than the latest late check-out (' + latest + ')',
-      'Offer late check-out until ' + latest + ' plus luggage storage', extra);
+      'Requested ' + time + ' is later than the latest late check-out (' + latest + '); room held for the offer',
+      'Offer late check-out until ' + latest + ' plus luggage storage; release the hold if declined', extra);
   }
-  if (available(row) > 0) {
-    return outcome('CONFIRMED', 'LATE_CHECKOUT_CONFIRMED',
-      'Late check-out until ' + time + ' on ' + item.check_out_date + ' fits ' + item.room_type + ' availability',
-      'Tell housekeeping: late check-out until ' + time, extra);
-  }
-  return outcome('ALTERNATIVE_OFFERED', 'LATE_CHECKOUT_UNAVAILABLE',
-    item.room_type + ' is fully booked on ' + item.check_out_date,
-    'Offer luggage storage after ' + standard + ' check-out', extra);
+  return outcome('CONFIRMED', 'LATE_CHECKOUT_CONFIRMED',
+    'Late check-out until ' + time + ' on ' + item.check_out_date + ' fits ' + item.room_type + ' availability',
+    'Tell housekeeping: late check-out until ' + time, extra);
 }
 
 function decideRoomUpgrade(item, ctx, state) {
@@ -136,6 +155,11 @@ function decideRoomUpgrade(item, ctx, state) {
   if (missing.length) {
     return outcome('MANUAL_REVIEW', 'INVENTORY_NOT_FOUND',
       'No inventory row for ' + missing.join(', '), 'Check ' + target + ' availability manually', extra);
+  }
+  for (var i = 0; i < keys.length; i++) {
+    var incomplete = incompleteInventory(keys[i], ctx.inventory.get(keys[i]), AVAILABILITY_FIELDS,
+      'Check ' + target + ' availability manually', extra);
+    if (incomplete) return incomplete;
   }
   var full = keys.filter(function (key) {
     return available(ctx.inventory.get(key)) - (state.holds.get(key) || 0) <= 0;

@@ -30,8 +30,11 @@ test('the batch splits 13 confirmed, 3 alternative, 4 review', () => {
   assert.deepEqual(countBy(first.planned, 'status'), { CONFIRMED: 13, ALTERNATIVE_OFFERED: 3, MANUAL_REVIEW: 4 });
 });
 
-test('only the confirmed early check-in changes inventory', () => {
-  assert.deepEqual(first.inventoryWrites, [{ inventory_key: '2026-11-02|Deluxe King Suite', early_ready_rooms: 0 }]);
+test('the confirmed early check-in and late check-out change inventory', () => {
+  assert.deepEqual(first.inventoryWrites, [
+    { inventory_key: '2026-11-02|Deluxe King Suite', early_ready_rooms: 0 },
+    { inventory_key: '2026-11-08|Penthouse Suite', active_holds: 1 },
+  ]);
 });
 
 test('a second run with the first run logged does nothing', () => {

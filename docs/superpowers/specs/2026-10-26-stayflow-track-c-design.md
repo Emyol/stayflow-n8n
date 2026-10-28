@@ -175,7 +175,7 @@ For each normalized request, in payload order:
 | Category | Rule (in order) | Outcome |
 |---|---|---|
 | early_checkin | disabled → ALT · no time parsed → REVIEW · time ≥ standard check-in → CONFIRMED (`STANDARD_CHECKIN_APPLIES`) · time < earliest → ALT (`TOO_EARLY`) · no inventory row → REVIEW · `early_ready_rooms` (minus rooms already allocated earlier in this batch) > 0 → CONFIRMED (`EARLY_CHECKIN_CONFIRMED`, allocate 1 ready room) · else ALT (`NO_READY_ROOM`: luggage storage + standard check-in) | |
-| late_checkout | disabled → ALT · no time → REVIEW · time ≤ standard checkout → CONFIRMED (`STANDARD_CHECKOUT_APPLIES`) · time > latest → ALT (offer latest) · no inventory row for `check_out_date` + room type → REVIEW · available > 0 → CONFIRMED (`LATE_CHECKOUT_CONFIRMED`) · else ALT (`LATE_CHECKOUT_UNAVAILABLE`: luggage storage) | |
+| late_checkout | disabled → ALT · no time → REVIEW · time ≤ standard checkout → CONFIRMED (`STANDARD_CHECKOUT_APPLIES`) · no inventory row for `check_out_date` + room type → REVIEW · blank count → REVIEW (`INVENTORY_INCOMPLETE`) · no spare room → ALT (`LATE_CHECKOUT_UNAVAILABLE`: luggage storage) · otherwise hold one room (`active_holds + 1`), then time > latest → ALT (`LATE_CHECKOUT_TOO_LATE`, offer latest) · else CONFIRMED (`LATE_CHECKOUT_CONFIRMED`) | |
 | room_upgrade | disabled → ALT · no target type → REVIEW · any night (`check_in` … `check_out − 1`) missing a row → REVIEW · any night available ≤ 0 (after batch holds) → ALT (`UPGRADE_UNAVAILABLE`: keep current room, re-check at arrival) · else place hold on every night → ALT (`UPGRADE_HELD_AWAITING_APPROVAL`: rate + guest approval needed, hold expires in `upgrade_hold_hours`) | Never CONFIRMED automatically: upgrades need guest approval of the rate |
 | room_preference | linked booking found → REVIEW (`LINKED_BOOKING_CHECK`) · else CONFIRMED (`PREFERENCE_NOTED`: noted for room assignment, not guaranteed) | |
 | service_request | services disabled → REVIEW · else CONFIRMED (`SERVICE_ACCEPTED`: accepted into the staff queue, not a stock guarantee) | |
@@ -185,7 +185,7 @@ For each normalized request, in payload order:
 | invalid | INVALID. Guest email only if the address itself is valid ("we need more details") | |
 | duplicate | DUPLICATE. No calendar, no email | |
 
-**In-batch allocation ledger:** the early check-in and upgrade branch nodes each process all their items in one run and keep a running ledger, so two requests in one batch can't both take the last ready room or upgrade room. Resulting inventory changes are written back to `RoomInventory` (`early_ready_rooms − n`, `active_holds + n`).
+**In-batch allocation ledger:** the early check-in, late check-out and upgrade branch nodes each process all their items in one run and keep a running ledger, so two requests in one batch can't both take the last ready room, late check-out room or upgrade room. Resulting inventory changes are written back to `RoomInventory` (`early_ready_rooms − n`, `active_holds + n`). `Collect Inventory Changes` runs once per incoming branch, so it reads every rules branch that has run so far and each write carries the full total.
 
 ### 5.4 Staff task (Calendar) plan
 All times are in hotel local time (+08:00), 30-minute events unless noted. Titles carry `[HIGH]` when priority is HIGH, plus `request_id` and confirmation number.

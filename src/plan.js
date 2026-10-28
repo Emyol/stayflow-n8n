@@ -22,7 +22,7 @@ function nowSlot(now, hours, offset) {
 
 function calendarPlan(item, ctx) {
   var p = ctx.policies;
-  var offset = p.hotel_timezone_offset || '+08:00';
+  var offset = policyOffset(p);
   var prep = policyTime(p, 'service_prep_time') || '09:00';
   var checkout = policyTime(p, 'standard_checkout_time');
   switch (item.decision_code) {

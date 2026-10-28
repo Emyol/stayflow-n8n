@@ -117,6 +117,18 @@ test('a late check-out past the limit is offered the latest time when a room all
   assert.equal(item.decision_code, 'LATE_CHECKOUT_TOO_LATE');
   assert.equal(item.requested_time, '18:00');
   assert.equal(item.offered_time, '16:00');
+  assert.deepEqual(item.inventory_changes, [
+    { inventory_key: '2026-11-08|Penthouse Suite', field: 'active_holds', delta: 1 },
+  ]);
+});
+
+test('a late check-out offer holds the room, so a later request in the batch cannot take it', () => {
+  const out = decideAll([
+    withBooking('REQ-2026-105', { confirmation_number: 'HTL-1', request_details: 'Can we stay until 6:00 PM?' }, 'T-1'),
+    withBooking('REQ-2026-105', { confirmation_number: 'HTL-2', request_details: 'Can we stay until 1:00 PM?' }, 'T-2'),
+  ]);
+  assert.equal(byId(out, 'T-1').decision_code, 'LATE_CHECKOUT_TOO_LATE');
+  assert.equal(byId(out, 'T-2').decision_code, 'LATE_CHECKOUT_UNAVAILABLE');
 });
 
 test('a late check-out past the limit with no availability is unavailable', () => {
@@ -138,4 +150,39 @@ test('invalid, duplicate and unknown routes use the fixed decisions', () => {
   assert.equal(byId(out, 'EDGE-006').decision_reason, 'Same booking and request type as EDGE-005');
   assert.equal(byId(out, 'EDGE-004').decision_code, 'UNRECOGNIZED_REQUEST_TYPE');
   assert.equal(M.FIXED_DECISIONS.other.status, 'MANUAL_REVIEW');
+});
+
+test('a blank inventory count sends the request to review instead of "fully booked"', () => {
+  const blank = field => readSheet('RoomInventory').map(r => ({ ...r, [field]: '' }));
+  const [late] = decideAll([submission('REQ-2026-105')], makeCtx({ inventoryRows: blank('reserved_rooms') }));
+  assert.equal(late.status, 'MANUAL_REVIEW');
+  assert.equal(late.decision_code, 'INVENTORY_INCOMPLETE');
+  assert.match(late.decision_reason, /reserved_rooms/);
+  const [upgrade] = decideAll([submission('REQ-2026-102')], makeCtx({ inventoryRows: blank('total_rooms') }));
+  assert.equal(upgrade.decision_code, 'INVENTORY_INCOMPLETE');
+  const [early] = decideAll([submission('REQ-2026-101')], makeCtx({ inventoryRows: blank('early_ready_rooms') }));
+  assert.equal(early.decision_code, 'INVENTORY_INCOMPLETE');
+  assert.deepEqual(early.inventory_changes, []);
+});
+
+test('two late check-outs cannot both take the last spare room, and the confirmed one holds it', () => {
+  const out = decideAll([
+    withBooking('REQ-2026-105', { confirmation_number: 'HTL-1' }, 'T-1'),
+    withBooking('REQ-2026-105', { confirmation_number: 'HTL-2' }, 'T-2'),
+  ]);
+  assert.equal(byId(out, 'T-1').decision_code, 'LATE_CHECKOUT_CONFIRMED');
+  assert.deepEqual(byId(out, 'T-1').inventory_changes, [
+    { inventory_key: '2026-11-08|Penthouse Suite', field: 'active_holds', delta: 1 },
+  ]);
+  assert.equal(byId(out, 'T-2').decision_code, 'LATE_CHECKOUT_UNAVAILABLE');
+  assert.deepEqual(byId(out, 'T-2').inventory_changes, []);
+});
+
+test('a catalog category with no rules branch says so instead of "not in the request catalog"', () => {
+  const ctx = makeCtx();
+  ctx.catalog.set('spabooking', { category: 'spa', base_priority: 'NORMAL', schedule_from_text: false });
+  const [item] = decideAll([withBooking('REQ-2026-104', { request_type: 'Spa Booking' })], ctx);
+  assert.equal(item.decision_code, 'UNRECOGNIZED_REQUEST_TYPE');
+  assert.equal(item.decision_reason, 'Request catalog category "spa" has no rules branch');
+  assert.equal(byId(decideAll(edgeCases), 'EDGE-004').decision_reason.endsWith('is not in the request catalog'), true);
 });
