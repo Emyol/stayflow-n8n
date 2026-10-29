@@ -1,9 +1,13 @@
 {
   "spreadsheetId": "18wno6DELat3xTkZs62UcYKlw_iRo9W2DtaCTZP2iyvk",
-  "calendarId": "acunaamieljosiah@gmail.com",
+  "calendarId": "pauldacalan@gmail.com",
   "credentials": {
     "googleSheetsOAuth2Api": { "name": "Google Sheets (StayFlow)" },
     "googleCalendarOAuth2Api": { "name": "Google Calendar (StayFlow)" },
-    "gmailOAuth2": { "name": "Gmail (StayFlow)" }
-  }
+    "gmailOAuth2": { "name": "Gmail (StayFlow)" },
+    "notionApi": { "name": "Notion (StayFlow)" },
+    "httpHeaderAuth": { "name": "StayFlow Report Key" }
+  },
+  "notion": { "databaseId": "4089ff49-b638-81ba-b94a-f81fa76babe1" },
+  "reportRecipient": "pauldacalan@gmail.com"
 }

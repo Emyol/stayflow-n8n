@@ -1,6 +1,6 @@
 # Handoff: StayFlow, Track C
 
-Status as of **2026-10-27**. Deadline: **Saturday 2026-10-31, 10:00 PM Manila** (aim for 8:00 PM).
+Status as of **2026-10-29**. Deadline: **Saturday 2026-10-31, 10:00 PM Manila** (aim for 8:00 PM).
 
 ## Where things stand
 
@@ -19,12 +19,30 @@ Status as of **2026-10-27**. Deadline: **Saturday 2026-10-31, 10:00 PM Manila** 
 - A final code review was done; its Critical/Important findings are fixed.
 - The 60-second pitch video is rendered (`video/`).
 
+## Added on 2026-10-29: blueprint v2 add-ons (optional)
+
+The blueprint is now v2 (`StayFlow_Track_C_Buildathon_Blueprint.md`, §17–21). Both add-ons are built, tested offline (131 tests) and run on a local n8n 2.45.5 against a Notion mock and stubbed Google nodes. The results are in the runbook under *Verified on 2026-10-29*.
+
+- **Notion staff board** (§17): a best-effort branch after `Update Request Log` that upserts one card per `request_id`, plus a separate resync workflow for failed syncs. **Off in the cloud build** until someone creates the Notion integration, board and `Notion (StayFlow)` credential and sets `notion.databaseId` in `config/cloud.json`. Steps: runbook → *Notion staff board*.
+- **Excel report** (§18): a separate admin workflow with a Header Auth webhook for downloads and a manual email fallback. It is built for the cloud now (`dist/stayflow-report-cloud.json`) and needs a `StayFlow Report Key` credential. Steps: runbook → *Excel report*.
+- `GuestRequests` gained three columns at the end: `notion_page_id`, `notion_sync_status`, `notion_last_synced_at`. **Add these headers to the live sheet** before turning Notion on. Nothing else in the sheet changed.
+
+**Live on the cloud as of 2026-10-29 (Paul's personal space, Paul's credentials):**
+
+- **StayFlow (Paul) | Track C | Guest Request Automation** — https://khylepanganiban.app.n8n.cloud/workflow/f89FTKpnBgiusVMz. Current build with Notion on (55 nodes). Run 37879: 13 / 3 / 4, 20 calendar events `CREATED` (Paul's calendar), 20 emails `SENT` (from and to pauldacalan@gmail.com), 20 Notion cards `SYNCED`.
+- **StayFlow (Paul) | Admin Excel Report** — active. Emailed and downloaded reports verified: 403 without or with a wrong key, 400 for a reversed range, 200 with a real `.xlsx`. The `StayFlow Report Key` value lives in `~/.stayflow-report-key` on Paul's Mac.
+- **StayFlow (Paul) | Notion Board Resync** and **StayFlow (Paul) | Reset demo data**. Reset clears `GuestRequests` and sets `RoomInventory!H2`=1 and `G6`=0. It does not delete calendar events.
+- The Notion board is the **Guest Request Board** database under Paul's StayFlow page, which a private `StayFlow` connection can access.
+- The shared sheet changed: `HotelPolicies!B21` (`demo_recipient_override`) is now pauldacalan@gmail.com, and `GuestRequests` has the three Notion columns. Miel's workflow (`DbGmHKRYgBJpUkGN`) still runs the older build on Miel's credentials.
+
+Per blueprint §20: freeze the core first. Only add Notion/Excel to the video if they work on the cloud; neither replaces any required Track C node.
+
 ## What's left, in order
 
 Roles follow the blueprint: Automation lead, Data/Integration lead, QA/Pitch lead.
 
 1. ~~Deploy to the organizer cloud~~: done 2026-10-27 (see above). After any later change, rebuild, re-import and re-check the Gmail credential (see the runbook).
-   - **The known-gap fixes on `dev` are not on the cloud yet.** Run `npm run build -- cloud` and re-import before recording. To keep the workflow URL above, open that workflow, select all nodes, delete them, then paste the contents of `dist/stayflow-cloud.json` onto the canvas and save.
+   - **The known-gap fixes (merged to `master` in PR #1) are not on the cloud yet.** Run `npm run build -- cloud` and re-import before recording. To keep the workflow URL above, open that workflow, select all nodes, delete them, then paste the contents of `dist/stayflow-cloud.json` onto the canvas and save.
 2. **Record the 2–5 minute video** (QA/Pitch lead). Required content:
    - the workflow executing live on the cloud: the canvas, the run, then the sheet rows, a calendar event and an email
    - spoken answers to the three Track C questions; draft answers are in `StayFlow_Track_C_Buildathon_Blueprint.md` §13
@@ -32,11 +50,12 @@ Roles follow the blueprint: Automation lead, Data/Integration lead, QA/Pitch lea
    - before recording, check that `GuestRequests` is empty, `RoomInventory!H2` is `1` and `RoomInventory!G6` is `0`; otherwise reset them as in the runbook.
 3. **Take one full-canvas screenshot** of the cloud workflow (Automation lead). The build now puts the three track answers on the canvas as sticky notes (Q1, Q2, Q3, below Intake), so take it after the re-import.
 4. **Write the one-page documentation** (QA/Pitch lead). The outline is in the blueprint §14.
-5. **Submit the form** with the team name, members, screenshot, video and workflow URL (any member, same team name for everyone).
+5. *(Optional, after 1–4 are safe)* Turn on the Notion board and import the Excel report workflow, following the runbook. Re-run T01/T03/T07 afterwards.
+6. **Submit the form** with the team name, members, screenshot, video and workflow URL (any member, same team name for everyone).
 
 ## Getting set up as a teammate
 
-1. Clone, then run `npm test` (Node 22+, no npm install needed). 103 passing tests means your checkout is good.
+1. Clone, then run `npm test` (Node 22+, no npm install needed). 131 passing tests means your checkout is good.
 2. **Google access.** The spreadsheet, the Google Cloud project `stayflow-n8n` and its OAuth client all belong to Miel's Google account. Ask Miel to:
    - share the spreadsheet with you as Editor,
    - add your Google account as a test user under Google Auth Platform → Audience in the `stayflow-n8n` project,
