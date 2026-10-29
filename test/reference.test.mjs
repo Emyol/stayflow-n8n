@@ -5,7 +5,7 @@ import { readSheet } from './helpers/sheets.mjs';
 
 const {
   buildPolicies, policyTime, policyNumber, policyBool, buildCatalog, buildInventory,
-  available, inventoryRoomTypes, buildLogIndex,
+  available, inventoryRoomTypes, buildLogIndex, policyOffset, blankInventoryFields, emptyReferenceTabs,
 } = loadModules(['time', 'text', 'reference']);
 
 test('policies are read as typed values', () => {
@@ -52,4 +52,46 @@ test('log index ignores the empty item Sheets emits for an empty tab', () => {
   assert.equal(buildLogIndex([{}]).rows.length, 0);
   const log = buildLogIndex([{ request_id: 'REQ-1', status: 'CONFIRMED' }]);
   assert.equal(log.byRequestId.get('REQ-1').status, 'CONFIRMED');
+});
+
+test('a malformed timezone offset falls back to Manila time', () => {
+  assert.equal(policyOffset({ hotel_timezone_offset: '+08:00' }), '+08:00');
+  assert.equal(policyOffset({ hotel_timezone_offset: '-05:30' }), '-05:30');
+  assert.equal(policyOffset({ hotel_timezone_offset: 'GMT+8' }), '+08:00');
+  assert.equal(policyOffset({ hotel_timezone_offset: '+8' }), '+08:00');
+  assert.equal(policyOffset({}), '+08:00');
+});
+
+test('a blank inventory count reads as unknown, not zero', () => {
+  const [row] = [...buildInventory([{ date: '2026-11-08', room_type: 'Penthouse Suite', total_rooms: '2', reserved_rooms: '',
+    blocked_rooms: '0', active_holds: ' ', early_ready_rooms: 0 }]).values()];
+  assert.equal(row.total_rooms, 2);
+  assert.equal(row.reserved_rooms, null);
+  assert.equal(row.early_ready_rooms, 0);
+  assert.deepEqual(blankInventoryFields(row, ['total_rooms', 'reserved_rooms', 'blocked_rooms', 'active_holds']),
+    ['reserved_rooms', 'active_holds']);
+  assert.deepEqual(blankInventoryFields(row, ['early_ready_rooms']), []);
+});
+
+test('empty reference tabs are named; the seeded sheets have none', () => {
+  const seeded = {
+    catalog: buildCatalog(readSheet('RequestCatalog')),
+    policies: buildPolicies(readSheet('HotelPolicies')),
+    inventory: buildInventory(readSheet('RoomInventory')),
+  };
+  assert.deepEqual(emptyReferenceTabs(seeded), []);
+  // Sheets hands an empty tab over as a single {} item
+  const empty = { catalog: buildCatalog([{}]), policies: buildPolicies([{}]), inventory: buildInventory([{}]) };
+  assert.deepEqual(emptyReferenceTabs(empty), ['RequestCatalog', 'HotelPolicies', 'RoomInventory']);
+});
+
+test('a count that is not a whole number of rooms reads as unknown', () => {
+  const rows = ['n/a', '3 rooms', '-1', '1.5'].map((v, i) => ({ date: `2026-11-0${i + 1}`, room_type: 'Suite', early_ready_rooms: v }));
+  for (const row of buildInventory(rows).values()) assert.equal(row.early_ready_rooms, null, row.date);
+});
+
+test('an out-of-range timezone offset falls back too', () => {
+  assert.equal(policyOffset({ hotel_timezone_offset: '+15:00' }), '+08:00');
+  assert.equal(policyOffset({ hotel_timezone_offset: '+08:60' }), '+08:00');
+  assert.equal(policyOffset({ hotel_timezone_offset: '+14:00' }), '+14:00');
 });

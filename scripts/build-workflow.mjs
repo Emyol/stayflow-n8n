@@ -31,7 +31,8 @@ const ROUTES = [
 const DECISION_REASONS = {
   invalid: "={{ $json.validation_errors.join('; ') }}",
   duplicate: "={{ 'Same booking and request type as ' + $json.duplicate_of }}",
-  other: "={{ 'Request type \"' + $json.request_type + '\" is not in the request catalog' }}",
+  // mirrors fixedDecisionReason('other') in src/rules.js; a build test keeps them equal
+  other: "={{ $json.category && $json.category !== 'other' ? 'Request catalog category \"' + $json.category + '\" has no rules branch' : 'Request type \"' + $json.request_type + '\" is not in the request catalog' }}",
 };
 
 // Stable ids so rebuilding and re-importing does not churn the workflow.
@@ -91,7 +92,8 @@ function sheetSchema(columns) {
 }
 
 function readNode(name, position, config, tab) {
-  return { name, type: 'n8n-nodes-base.googleSheets', typeVersion: 4.5, position, executeOnce: true,
+  // alwaysOutputData: an empty tab still reaches Classify, which names it instead of the run ending silently
+  return { name, type: 'n8n-nodes-base.googleSheets', typeVersion: 4.5, position, executeOnce: true, alwaysOutputData: true,
     parameters: { ...sheetLocator(config, tab), options: {} } };
 }
 
@@ -132,7 +134,27 @@ export function buildWorkflow(env) {
     sticky('Note: Intake', [-60, 140], 900, 320, '## Intake\nOrganizer HTTP Request (unchanged), split into one item per guest request, then flattened by a Set node.', 7),
     sticky('Note: Reference data', [860, 140], 860, 320, '## Reference data\nPolicies, request catalog, room inventory and the request log, read once per run from Google Sheets.', 5),
     sticky('Note: Rules', [1720, -460], 920, 1520, '## Rules\nValidate, de-duplicate and classify, then route by category. Each branch applies the hotel policy and inventory rules for that request type.', 4),
-    sticky('Note: Inventory', [2680, -460], 520, 320, '## Inventory\nConfirmed early check-ins and upgrade holds are written back to RoomInventory.', 3),
+    sticky('Note: Inventory', [2680, -460], 520, 320, '## Inventory\nConfirmed early check-ins, late check-out holds and upgrade holds are written back to RoomInventory.', 3),
+    sticky('Note: Q1 Routing', [-60, 520], 560, 600, [
+      '## Q1 How routing stays policy-compliant',
+      'Classify maps each request label to a category through the RequestCatalog tab. **Route by Category** (Switch) sends it to one rules node per category, with a fallback to staff review for anything unknown.',
+      'Each rules node reads its limits from the **HotelPolicies** tab (check-in and check-out times, upgrade hold hours, pet weight) and from RoomInventory, then returns a `decision_code`, status, reason and staff action. A blank or missing policy that a rule depends on goes to review instead of a guess.',
+      'Plan picks the email template and the Calendar task from that `decision_code`, and injects only escaped guest text. The wording comes from the decision, so an email cannot promise a room the rules did not reserve.',
+    ].join('\n\n'), 7),
+    sticky('Note: Q2 Edge cases', [520, 520], 560, 600, [
+      '## Q2 Conflicts, full bookings, duplicates',
+      '- **Duplicates:** a request ID already in GuestRequests goes to *Already Processed* with no side effects. The same booking asking for the same request type again is logged as `duplicate` of the first, with no second task or email.',
+      '- **Conflicting availability:** rules count rooms already taken in this run, including holds from the other request types, so two guests never get the last ready or spare room. Late check-outs (confirmed or offered) and upgrade offers write `active_holds` to RoomInventory, so the next run sees one room fewer.',
+      '- **Fully booked:** no spare room gives an alternative (luggage storage, current room), never a confirmation.',
+      '- **Bad data:** a missing row or blank count gives `INVENTORY_NOT_FOUND` / `INVENTORY_INCOMPLETE` staff review. An empty reference tab stops the run with its name.',
+      '- **Failed Calendar or Gmail:** recorded as `FAILED` in the log, never as sent.',
+    ].join('\n'), 3),
+    sticky('Note: Q3 Impact and scale', [1100, 520], 600, 600, [
+      '## Q3 Front-desk impact and scale',
+      'One run reads every open request, decides it, logs it, books the staff task and emails the guest. The demo batch of 20 requests took about 47 s on this instance (2026-10-27 build), and re-running it changed nothing.',
+      'Staff only handle what the rules send to review, and every request has an auditable row in GuestRequests with its reason and delivery status.',
+      'To scale across a chain, the rules are data: add a property column to the tabs, or swap the Sheets reads for a **PMS** API (Opera, Cloudbeds, Mews) behind the same nodes. RoomInventory then becomes the PMS availability call, with atomic room allocation that Sheets cannot provide.',
+    ].join('\n\n'), 5),
     sticky('Note: Actions', [2680, -60], 2000, 520, '## Actions\nPlan the staff task and guest email, log the request, create the Calendar task, send the Gmail. Failures go to their own branch and are recorded, never hidden.', 6),
     sticky('Note: Audit', [4700, -60], 300, 520, '## Audit\nFinal delivery status written back to GuestRequests.', 2),
     { ...trigger, position: [0, 300] },
@@ -144,7 +166,7 @@ export function buildWorkflow(env) {
     readNode('Read Request Catalog', [900, 300], config, 'RequestCatalog'),
     readNode('Read Hotel Policies', [1110, 300], config, 'HotelPolicies'),
     readNode('Read Room Inventory', [1320, 300], config, 'RoomInventory'),
-    { ...readNode('Read Request Log', [1530, 300], config, 'GuestRequests'), alwaysOutputData: true },
+    readNode('Read Request Log', [1530, 300], config, 'GuestRequests'),
     codeNode('Classify, Validate & Dedupe', [1760, 300], ['time', 'text', 'reference', 'intake'], readGlue('classify')),
     ifNode('New Request?', [1980, 300], '={{ $json.route }}', { type: 'string', operation: 'notEquals' }, 'already_processed'),
     { name: 'Already Processed: No Action', type: 'n8n-nodes-base.noOp', typeVersion: 1, position: [2200, 900], parameters: {} },
@@ -243,6 +265,7 @@ export function buildWorkflow(env) {
     link(name, 'Plan Staff Task & Email');
   });
   link('Rules: Early Check-In', 'Collect Inventory Changes');
+  link('Rules: Late Check-Out', 'Collect Inventory Changes');
   link('Rules: Room Upgrade', 'Collect Inventory Changes');
   link('Collect Inventory Changes', 'Update Room Inventory');
   link('Plan Staff Task & Email', 'Log Request');

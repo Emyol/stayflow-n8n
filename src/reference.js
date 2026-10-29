@@ -39,6 +39,14 @@ function policyBool(policies, key) {
   return null;
 }
 
+// Calendar timestamps need a strict "+HH:MM"; anything else would crash the
+// offset arithmetic in time.js, so it falls back to Manila.
+function policyOffset(policies) {
+  var raw = String(policies.hotel_timezone_offset == null ? '' : policies.hotel_timezone_offset).trim();
+  var m = /^[+-](\d{2}):(\d{2})$/.exec(raw);
+  return m && Number(m[1]) <= 14 && Number(m[2]) <= 59 ? raw : '+08:00';
+}
+
 function buildCatalog(rows) {
   var catalog = new Map();
   rows.forEach(function (row) {
@@ -63,14 +71,27 @@ function buildInventory(rows) {
     inventory.set(key, {
       date: date,
       room_type: roomType,
-      total_rooms: Number(row.total_rooms) || 0,
-      reserved_rooms: Number(row.reserved_rooms) || 0,
-      blocked_rooms: Number(row.blocked_rooms) || 0,
-      active_holds: Number(row.active_holds) || 0,
-      early_ready_rooms: Number(row.early_ready_rooms) || 0,
+      total_rooms: inventoryCount(row.total_rooms),
+      reserved_rooms: inventoryCount(row.reserved_rooms),
+      blocked_rooms: inventoryCount(row.blocked_rooms),
+      active_holds: inventoryCount(row.active_holds),
+      early_ready_rooms: inventoryCount(row.early_ready_rooms),
     });
   });
   return inventory;
+}
+
+// Anything but a whole number of rooms is unknown (null), never 0: reading it
+// as 0 would tell the guest "fully booked" when nobody knows.
+function inventoryCount(raw) {
+  var text = String(raw == null ? '' : raw).trim();
+  if (text === '') return null;
+  var value = Number(text);
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function blankInventoryFields(row, fields) {
+  return fields.filter(function (field) { return row[field] === null; });
 }
 
 function available(row) {
@@ -84,6 +105,15 @@ function inventoryRoomTypes(inventory) {
     if (row.room_type && types.indexOf(row.room_type) === -1) types.push(row.room_type);
   });
   return types;
+}
+
+// GuestRequests is left out: it is empty on every first run.
+function emptyReferenceTabs(ref) {
+  var empty = [];
+  if (!ref.catalog.size) empty.push('RequestCatalog');
+  if (!Object.keys(ref.policies).length) empty.push('HotelPolicies');
+  if (!ref.inventory.size) empty.push('RoomInventory');
+  return empty;
 }
 
 function buildLogIndex(rows) {

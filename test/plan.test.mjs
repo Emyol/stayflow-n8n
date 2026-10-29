@@ -104,3 +104,12 @@ test('planned items carry every GuestRequests column', () => {
   assert.equal(p.email_status, 'PENDING');
   assert.equal(p.processed_at, NOW.toISOString());
 });
+
+test('a malformed timezone offset falls back to +08:00 instead of crashing', () => {
+  const broken = { ...ctx, policies: { ...ctx.policies, hotel_timezone_offset: 'GMT+8' } };
+  const review = M.planActions(byId(decided, 'REQ-2026-103'), broken);
+  assert.equal(review.calendar_start, '2026-10-26T22:00:00+08:00');
+  assert.equal(M.planActions(byId(decided, 'REQ-2026-101'), broken).calendar_start, '2026-11-02T09:30:00+08:00');
+  assert.match(review.calendar_description, /hotel_timezone_offset "GMT\+8" is not a valid \+HH:MM offset; times use \+08:00/);
+  assert.doesNotMatch(plan('REQ-2026-103').calendar_description, /hotel_timezone_offset/);
+});

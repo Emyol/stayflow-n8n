@@ -5,7 +5,7 @@ Everything below was executed against the local Docker n8n on 2026-10-26.
 ## Build
 
 ```bash
-npm test                  # 83 tests, all offline
+npm test                  # 103 tests, all offline
 cp config/local.example.json config/local.json   # once per machine; fill in your n8n credential ids + calendar id
 npm run build -- local    # dist/stayflow-local.json  (credential ids for this machine)
 npm run build -- cloud    # dist/stayflow-cloud.json  (credential names only)
@@ -28,14 +28,14 @@ The workflow id is fixed (`stayflowTrackC01`), so re-importing replaces it in pl
 
 Open http://localhost:5678/workflow/stayflowTrackC01 and click **Execute workflow** (or run it through the n8n MCP in manual mode). A full first run of the 20 organizer requests takes about 80 seconds.
 
-Expected first run: 20 `GuestRequests` rows (13 CONFIRMED, 3 ALTERNATIVE_OFFERED, 4 MANUAL_REVIEW), 20 Calendar events, 20 emails to the `demo_recipient_override` inbox, and `RoomInventory!H2` going from 1 to 0.
+Expected first run: 20 `GuestRequests` rows (13 CONFIRMED, 3 ALTERNATIVE_OFFERED, 4 MANUAL_REVIEW), 20 Calendar events, 20 emails to the `demo_recipient_override` inbox, `RoomInventory!H2` going from 1 to 0 (the early check-in), and `RoomInventory!G6` going from 0 to 1 (the late check-out hold for REQ-2026-105).
 
 Expected re-run: every request goes to **Already Processed: No Action**; nothing is created or sent.
 
 ## Reset for a demo
 
 1. Clear `GuestRequests` rows 2 and below (keep the header).
-2. Set `RoomInventory!H2` (`early_ready_rooms`, 2026-11-02 Deluxe King Suite) back to `1`.
+2. Set `RoomInventory!H2` (`early_ready_rooms`, 2026-11-02 Deluxe King Suite) back to `1`, and `RoomInventory!G6` (`active_holds`, 2026-11-08 Penthouse Suite) back to `0`.
 3. Delete the previous run's Calendar events (titles end in `— REQ-2026-1xx (HTL-…)`).
 
 ## Failure-path check
