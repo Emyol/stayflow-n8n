@@ -186,3 +186,114 @@ test('rules nodes that take no holds never read the hold branches', () => {
     assert.doesNotThrow(() => new Function('$', '$input', node(name).parameters.jsCode)($, { all: () => [] }), name);
   }
 });
+
+// ---- Notion staff board mirror (optional, blueprint v2 §17) ----
+
+// a config object with the Notion mirror switched off
+const withoutNotion = env => ({ ...JSON.parse(readFileSync(new URL(`../config/${env}.json`, import.meta.url), 'utf8')), notion: { databaseId: '' } });
+
+const notionNodes = ['Prepare Notion Payload', 'Find Notion Page', 'Pick Notion Page', 'Existing Notion Page?',
+  'Update Notion Card', 'Create Notion Card', 'Notion Synced', 'Notion Failed', 'Store Notion Sync Outcome'];
+
+test('the Notion mirror hangs off the final audit and is left out until a database id is configured', () => {
+  for (const name of notionNodes) assert.ok(node(name), name);
+  assert.equal(wf.connections['Update Request Log'].main[0][0].node, 'Prepare Notion Payload');
+  const off = buildWorkflow(withoutNotion('cloud'));
+  assert.ok(!off.nodes.some(n => notionNodes.includes(n.name)), 'no Notion nodes without a database id');
+  assert.equal(off.connections['Update Request Log'], undefined);
+});
+
+test('Notion calls are best-effort: errors go to Notion Failed, never back into Calendar or Gmail', () => {
+  for (const name of ['Find Notion Page', 'Update Notion Card', 'Create Notion Card']) {
+    const n = node(name);
+    assert.equal(n.onError, 'continueErrorOutput', name);
+    assert.equal(n.retryOnFail, true, name);
+    assert.equal(n.credentials.notionApi.name, 'Notion (StayFlow)', name);
+    assert.equal(n.parameters.nodeCredentialType, 'notionApi', name);
+    assert.equal(wf.connections[name].main[1][0].node, 'Notion Failed', name);
+  }
+  // nothing downstream of the Notion branch can reach a guest-facing node again
+  const seen = new Set();
+  const walk = name => { if (seen.has(name)) return; seen.add(name); for (const out of wf.connections[name]?.main || []) for (const l of out) walk(l.node); };
+  walk('Prepare Notion Payload');
+  for (const name of ['Create Staff Task', 'Send Guest Email', 'Update Room Inventory', 'Log Request', 'Update Request Log']) {
+    assert.ok(!seen.has(name), `${name} is reachable from the Notion branch`);
+  }
+});
+
+test('the Notion lookup queries the configured database by Request ID and updates or creates by what it found', () => {
+  assert.equal(node('Find Notion Page').parameters.url, '=https://api.notion.com/v1/databases/YOUR_NOTION_DATABASE_ID/query');
+  assert.equal(node('Update Notion Card').parameters.method, 'PATCH');
+  assert.match(node('Update Notion Card').parameters.url, /\/v1\/pages\/\{\{ \$json\.notion_page_id \}\}$/);
+  assert.equal(node('Create Notion Card').parameters.method, 'POST');
+  assert.equal(wf.connections['Existing Notion Page?'].main[0][0].node, 'Update Notion Card');
+  assert.equal(wf.connections['Existing Notion Page?'].main[1][0].node, 'Create Notion Card');
+  assert.ok(node('Prepare Notion Payload').parameters.jsCode.includes('"YOUR_NOTION_DATABASE_ID"'));
+});
+
+test('the Notion outcome is written back as a request_id upsert of the full log row', () => {
+  const store = node('Store Notion Sync Outcome');
+  assert.equal(store.parameters.operation, 'appendOrUpdate');
+  assert.deepEqual(store.parameters.columns.matchingColumns, ['request_id']);
+  const columns = store.parameters.columns.schema.map(c => c.id);
+  for (const c of ['notion_page_id', 'notion_sync_status', 'notion_last_synced_at', 'status', 'email_status']) assert.ok(columns.includes(c), c);
+});
+
+test('the Notion resync is its own workflow that retries rows not yet SYNCED', async () => {
+  const { buildNotionResyncWorkflow } = await import('../scripts/build-workflow.mjs');
+  const resync = buildNotionResyncWorkflow('local.example');
+  const names = resync.nodes.map(n => n.name);
+  for (const name of ['Read Request Log', 'Select Rows to Resync', ...notionNodes]) assert.ok(names.includes(name), name);
+  assert.ok(!resync.nodes.some(n => ['n8n-nodes-base.gmail', 'n8n-nodes-base.googleCalendar'].includes(n.type)));
+  assert.equal(buildNotionResyncWorkflow(withoutNotion('cloud')), null);
+});
+
+// ---- Excel report (optional, blueprint v2 §18) ----
+
+test('the Excel report is a separate workflow behind an authenticated webhook', async () => {
+  const { buildReportWorkflow } = await import('../scripts/build-workflow.mjs');
+  const report = buildReportWorkflow('local.example');
+  const r = name => report.nodes.find(n => n.name === name);
+  const hook = r('Admin Export Request');
+  assert.equal(hook.type, 'n8n-nodes-base.webhook');
+  assert.equal(hook.parameters.authentication, 'headerAuth');
+  assert.equal(hook.parameters.responseMode, 'responseNode');
+  assert.equal(hook.credentials.httpHeaderAuth.name, 'StayFlow Report Key');
+  assert.ok(!report.nodes.some(n => starter.nodes.some(s => s.name === n.name)), 'the organizer input stays in the judged workflow only');
+  // read-only: no inventory or log writes, no calendar, and the only Gmail goes to staff
+  assert.ok(!report.nodes.some(n => n.type === 'n8n-nodes-base.googleCalendar'));
+  assert.ok(!report.nodes.some(n => n.type === 'n8n-nodes-base.googleSheets' && n.parameters.operation));
+  assert.equal(r('Email Report').parameters.sendTo, 'your.google.account@gmail.com');
+  const xlsx = r('Convert to XLSX');
+  assert.equal(xlsx.parameters.operation, 'xlsx');
+  assert.equal(xlsx.parameters.options.sheetName, 'Guest Requests');
+  const respond = r('Respond With XLSX');
+  assert.equal(respond.parameters.respondWith, 'binary');
+  const headers = Object.fromEntries(respond.parameters.options.responseHeaders.entries.map(e => [e.name, e.value]));
+  assert.equal(headers['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  assert.equal(headers['Cache-Control'], 'no-store');
+  assert.match(headers['Content-Disposition'], /^=attachment; filename="\{\{/);
+});
+
+test('report control items never reach Convert to XLSX', async () => {
+  const { buildReportWorkflow } = await import('../scripts/build-workflow.mjs');
+  const report = buildReportWorkflow('local.example');
+  const outputs = report.connections['Report Result'].main;
+  assert.equal(outputs.length, 2);
+  assert.equal(outputs[0][0].node, 'Webhook Request? (Message)');
+  assert.equal(outputs[1][0].node, 'Convert to XLSX');
+  assert.equal(report.connections['Range Valid?'].main[1][0].node, 'Webhook Request? (Message)');
+});
+
+test('every workflow is wired to real nodes and its Code nodes parse', async () => {
+  const { buildReportWorkflow, buildNotionResyncWorkflow } = await import('../scripts/build-workflow.mjs');
+  for (const w of [wf, buildReportWorkflow('local.example'), buildNotionResyncWorkflow('local.example')]) {
+    const names = new Set(w.nodes.map(n => n.name));
+    assert.equal(names.size, w.nodes.length, `${w.name}: node names are unique`);
+    for (const [source, { main }] of Object.entries(w.connections)) {
+      assert.ok(names.has(source), source);
+      for (const out of main) for (const l of out) assert.ok(names.has(l.node), `${w.name}: ${l.node}`);
+    }
+    for (const n of w.nodes.filter(x => x.type === 'n8n-nodes-base.code')) assert.doesNotThrow(() => new Function(n.parameters.jsCode), n.name);
+  }
+});

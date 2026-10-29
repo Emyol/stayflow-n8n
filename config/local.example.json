@@ -5,6 +5,10 @@
   "credentials": {
     "googleSheetsOAuth2Api": { "id": "YOUR_SHEETS_CREDENTIAL_ID", "name": "Google Sheets (StayFlow)" },
     "googleCalendarOAuth2Api": { "id": "YOUR_CALENDAR_CREDENTIAL_ID", "name": "Google Calendar (StayFlow)" },
-    "gmailOAuth2": { "id": "YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail (StayFlow)" }
-  }
+    "gmailOAuth2": { "id": "YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail (StayFlow)" },
+    "notionApi": { "id": "YOUR_NOTION_CREDENTIAL_ID", "name": "Notion (StayFlow)" },
+    "httpHeaderAuth": { "id": "YOUR_REPORT_KEY_CREDENTIAL_ID", "name": "StayFlow Report Key" }
+  },
+  "notion": { "databaseId": "YOUR_NOTION_DATABASE_ID" },
+  "reportRecipient": "your.google.account@gmail.com"
 }

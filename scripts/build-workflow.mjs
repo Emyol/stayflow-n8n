@@ -55,6 +55,12 @@ function eachItemCode(name, position, jsCode) {
   return { name, type: 'n8n-nodes-base.code', typeVersion: 2, position, parameters: { mode: 'runOnceForEachItem', jsCode } };
 }
 
+function eachItemModuleCode(name, position, modules, glue) {
+  const node = codeNode(name, position, modules, glue);
+  node.parameters = { mode: 'runOnceForEachItem', ...node.parameters };
+  return node;
+}
+
 function condition(leftValue, operator, rightValue = '') {
   return {
     options: { caseSensitive: true, leftValue: '', typeValidation: 'strict', version: 2 },
@@ -116,7 +122,90 @@ function sticky(name, position, width, height, content, color) {
 const isString = { type: 'string', operation: 'equals' };
 const isTrue = { type: 'boolean', operation: 'true', singleValue: true };
 
+const notionEnabled = config => Boolean(config.notion && String(config.notion.databaseId || '').trim());
+
+function linker() {
+  const links = {};
+  const link = (source, target, output = 0) => {
+    const main = (links[source] ??= { main: [] }).main;
+    while (main.length <= output) main.push([]);
+    main[output].push({ node: target, type: 'main', index: 0 });
+  };
+  return { links, link };
+}
+
+const credentialFor = {
+  'n8n-nodes-base.googleSheets': 'googleSheetsOAuth2Api',
+  'n8n-nodes-base.googleCalendar': 'googleCalendarOAuth2Api',
+  'n8n-nodes-base.gmail': 'gmailOAuth2',
+};
+
+function finishNodes(nodes, config) {
+  for (const node of nodes) {
+    node.id = node.id || stableId(node.name);
+    const credType = credentialFor[node.type];
+    if (credType) node.credentials = { [credType]: { ...config.credentials[credType] } };
+  }
+  return nodes;
+}
+
+// Notion API call through n8n's saved Notion credential, which also sets the
+// Notion-Version header (2022-02-22; query, create and update all exist there).
+// Failures (after retries) leave by the error output, so a Notion outage
+// never stops the run.
+function notionHttpNode(name, position, config, method, path, bodyField) {
+  const apiBase = (config.notion.apiBase || 'https://api.notion.com').replace(/\/$/, '');
+  return {
+    name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position,
+    onError: 'continueErrorOutput', retryOnFail: true, maxTries: 3, waitBetweenTries: 1500,
+    credentials: { notionApi: { ...config.credentials.notionApi } },
+    parameters: {
+      method, url: `=${apiBase}/v1/${path}`,
+      authentication: 'predefinedCredentialType', nodeCredentialType: 'notionApi',
+      sendBody: true, specifyBody: 'json', jsonBody: `={{ JSON.stringify($json.${bodyField}) }}`,
+      // Notion allows about three requests a second
+      options: { batching: { batch: { batchSize: 1, batchInterval: 400 } } },
+    },
+  };
+}
+
+// Upsert one Notion card per request_id, then record the outcome in GuestRequests.
+// Shared by the main workflow (after the final audit) and the resync workflow.
+function notionChain(config, [x, y], entry, link) {
+  const modules = ['time', 'notion'];
+  const databaseId = JSON.stringify(String(config.notion.databaseId).trim());
+  const nodes = [
+    codeNode('Prepare Notion Payload', [x, y], modules, readGlue('notion-prepare').replaceAll('__NOTION_DATABASE_ID__', databaseId)),
+    notionHttpNode('Find Notion Page', [x + 220, y], config, 'POST', `databases/${String(config.notion.databaseId).trim()}/query`, 'notion_query'),
+    eachItemModuleCode('Pick Notion Page', [x + 440, y - 80], modules, readGlue('notion-pick')),
+    ifNode('Existing Notion Page?', [x + 660, y - 80], '={{ $json.notion_page_id }}', { type: 'string', operation: 'notEmpty', singleValue: true }),
+    notionHttpNode('Update Notion Card', [x + 880, y - 180], config, 'PATCH', 'pages/{{ $json.notion_page_id }}', 'notion_update'),
+    notionHttpNode('Create Notion Card', [x + 880, y + 20], config, 'POST', 'pages', 'notion_create'),
+    eachItemModuleCode('Notion Synced', [x + 1100, y - 120], modules, readGlue('notion-synced')),
+    eachItemModuleCode('Notion Failed', [x + 1100, y + 160], modules, readGlue('notion-failed')),
+    upsertLogNode('Store Notion Sync Outcome', [x + 1340, y], config),
+  ];
+  link(entry, 'Prepare Notion Payload');
+  link('Prepare Notion Payload', 'Find Notion Page');
+  link('Find Notion Page', 'Pick Notion Page', 0);
+  link('Find Notion Page', 'Notion Failed', 1);
+  link('Pick Notion Page', 'Existing Notion Page?');
+  link('Existing Notion Page?', 'Update Notion Card', 0);
+  link('Existing Notion Page?', 'Create Notion Card', 1);
+  for (const call of ['Update Notion Card', 'Create Notion Card']) {
+    link(call, 'Notion Synced', 0);
+    link(call, 'Notion Failed', 1);
+  }
+  link('Notion Synced', 'Store Notion Sync Outcome');
+  link('Notion Failed', 'Store Notion Sync Outcome');
+  return nodes;
+}
+
+const NOTION_NOTE = '## Notion staff board (optional)\nMirrors each audited request to the private Guest Request Board, one card per `request_id` (found by query, then updated or created). Google Sheets stays the source of truth. A Notion failure is logged as `notion_sync_status = FAILED` and never re-runs Calendar or Gmail.';
+
+// env is a config name ('local', 'cloud') or, in tests, an already-loaded config object
 function readConfig(env) {
+  if (typeof env === 'object') return env;
   if (!existsSync(join(ROOT, 'config', `${env}.json`))) {
     throw new Error(`config/${env}.json not found. Copy config/local.example.json to config/${env}.json and fill in your n8n credential ids and calendar id.`);
   }
@@ -232,23 +321,7 @@ export function buildWorkflow(env) {
     upsertLogNode('Update Request Log', [4780, 200], config),
   ];
 
-  const credentialFor = {
-    'n8n-nodes-base.googleSheets': 'googleSheetsOAuth2Api',
-    'n8n-nodes-base.googleCalendar': 'googleCalendarOAuth2Api',
-    'n8n-nodes-base.gmail': 'gmailOAuth2',
-  };
-  for (const node of nodes) {
-    node.id = node.id || stableId(node.name);
-    const credType = credentialFor[node.type];
-    if (credType) node.credentials = { [credType]: { ...config.credentials[credType] } };
-  }
-
-  const links = {};
-  const link = (source, target, output = 0) => {
-    const main = (links[source] ??= { main: [] }).main;
-    while (main.length <= output) main.push([]);
-    main[output].push({ node: target, type: 'main', index: 0 });
-  };
+  const { links, link } = linker();
   link(trigger.name, http.name);
   link(http.name, 'Split Out Submissions');
   link('Split Out Submissions', 'Normalize Fields');
@@ -284,6 +357,12 @@ export function buildWorkflow(env) {
   link('Email Sent', 'Update Request Log');
   link('Email Failed', 'Update Request Log');
 
+  if (notionEnabled(config)) {
+    nodes.push(sticky('Note: Notion', [5020, -260], 1600, 720, NOTION_NOTE, 7));
+    nodes.push(...notionChain(config, [5060, 200], 'Update Request Log', link));
+  }
+  finishNodes(nodes, config);
+
   const workflow = {
     name: 'StayFlow | Track C | Guest Request Automation',
     nodes,
@@ -296,10 +375,147 @@ export function buildWorkflow(env) {
   return workflow;
 }
 
+// Retries the Notion mirror for logged requests that are not SYNCED yet
+// (a Notion outage, or a board added after requests were processed).
+// Separate from the judged workflow; it never touches Calendar or Gmail.
+export function buildNotionResyncWorkflow(env) {
+  const config = readConfig(env);
+  if (!notionEnabled(config)) return null;
+  const { links, link } = linker();
+  const nodes = [
+    sticky('Note: Resync', [-60, -140], 2180, 600, NOTION_NOTE + '\n\nRun this by hand to retry every logged request whose `notion_sync_status` is not `SYNCED`.', 7),
+    { name: 'Resync Notion Board', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 200], parameters: {} },
+    readNode('Read Request Log', [220, 200], config, 'GuestRequests'),
+    codeNode('Select Rows to Resync', [440, 200], ['time', 'notion'], readGlue('notion-resync')),
+    ...notionChain(config, [660, 200], 'Select Rows to Resync', link),
+  ];
+  link('Resync Notion Board', 'Read Request Log');
+  link('Read Request Log', 'Select Rows to Resync');
+  const workflow = {
+    name: 'StayFlow | Notion Board Resync',
+    nodes: finishNodes(nodes, config),
+    connections: links,
+    settings: { executionOrder: 'v1', timezone: 'Asia/Manila', saveManualExecutions: true },
+    pinData: {},
+    active: false,
+  };
+  if (config.workflowId) workflow.id = 'stayflowNotion01';
+  return workflow;
+}
+
+// Admin-only Excel export of GuestRequests (blueprint v2 §18). A separate
+// workflow: the authenticated webhook downloads an .xlsx, the manual trigger
+// emails the last 31 days to the staff inbox. Read-only by construction.
+export function buildReportWorkflow(env) {
+  const config = readConfig(env);
+  const { links, link } = linker();
+  const isDownload = "={{ $('Validate Report Range').first().json.delivery }}";
+  const reportModules = ['time', 'report'];
+  const nodes = [
+    sticky('Note: Report', [-60, -300], 2500, 420, [
+      '## Excel report (admin only)',
+      '**Download:** `POST` the webhook with `{ "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }` (at most 31 days) and the header from the **StayFlow Report Key** credential. A missing or wrong key gets 403 from n8n before anything runs.',
+      '**Email fallback:** click *Execute workflow* to send the last 31 days to the staff inbox.',
+      'Reads GuestRequests only: no inventory, calendar or guest email. Guest names, emails and notes are left out of the file, and formula-like text is escaped.',
+    ].join('\n\n'), 5),
+    {
+      name: 'Admin Export Request', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 200],
+      webhookId: stableId('report-webhook'),
+      credentials: { httpHeaderAuth: { ...config.credentials.httpHeaderAuth } },
+      parameters: { httpMethod: 'POST', path: 'stayflow-report', authentication: 'headerAuth', responseMode: 'responseNode', options: {} },
+    },
+    { name: 'Email Report to Staff', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 420], parameters: {} },
+    codeNode('Validate Report Range', [220, 300], reportModules, readGlue('report-validate')),
+    ifNode('Range Valid?', [440, 300], '={{ $json.ok }}', isTrue),
+    readNode('Read Request Log', [660, 200], config, 'GuestRequests'),
+    codeNode('Prepare Report Rows', [880, 200], reportModules, readGlue('report-rows')),
+    {
+      name: 'Report Result', type: 'n8n-nodes-base.switch', typeVersion: 3.2, position: [1100, 200],
+      parameters: {
+        rules: { values: [{ conditions: condition('={{ $json.__report_control === true }}', isTrue), renameOutput: true, outputKey: 'no_report' }] },
+        options: { fallbackOutput: 'extra', renameFallbackOutput: 'rows' },
+      },
+    },
+    ifNode('Webhook Request? (Message)', [1340, 420], isDownload, isString, 'download'),
+    {
+      name: 'Respond With Message', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [1560, 360],
+      parameters: {
+        respondWith: 'json',
+        responseBody: '={{ JSON.stringify({ message: $json.message, count: $json.count || 0 }) }}',
+        options: { responseCode: '={{ $json.http_status }}' },
+      },
+    },
+    { name: 'Nothing to Email', type: 'n8n-nodes-base.noOp', typeVersion: 1, position: [1560, 520], parameters: {} },
+    {
+      name: 'Convert to XLSX', type: 'n8n-nodes-base.convertToFile', typeVersion: 1.1, position: [1340, 120],
+      parameters: {
+        operation: 'xlsx', binaryPropertyName: 'data',
+        options: { fileName: "={{ $('Validate Report Range').first().json.file_name }}", sheetName: 'Guest Requests', headerRow: true },
+      },
+    },
+    ifNode('Webhook Request? (File)', [1560, 120], isDownload, isString, 'download'),
+    {
+      name: 'Respond With XLSX', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [1780, 40],
+      parameters: {
+        respondWith: 'binary', responseDataSource: 'set', inputFieldName: 'data',
+        options: { responseHeaders: { entries: [
+          { name: 'Content-Type', value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+          { name: 'Content-Disposition', value: "=attachment; filename=\"{{ $('Validate Report Range').first().json.file_name }}\"" },
+          { name: 'Cache-Control', value: 'no-store' },
+        ] } },
+      },
+    },
+    {
+      name: 'Email Report', type: 'n8n-nodes-base.gmail', typeVersion: 2.1, position: [1780, 200],
+      parameters: {
+        sendTo: config.reportRecipient || config.calendarId,
+        subject: "={{ 'StayFlow guest request report, ' + $('Validate Report Range').first().json.start_date + ' to ' + $('Validate Report Range').first().json.end_date }}",
+        emailType: 'text',
+        message: '=Attached: processed guest requests for the dates in the subject (Manila time). Sample data from the StayFlow demo.',
+        options: { appendAttribution: false, attachmentsUi: { attachmentsBinary: [{ property: 'data' }] } },
+      },
+    },
+  ];
+  link('Admin Export Request', 'Validate Report Range');
+  link('Email Report to Staff', 'Validate Report Range');
+  link('Validate Report Range', 'Range Valid?');
+  link('Range Valid?', 'Read Request Log', 0);
+  link('Range Valid?', 'Webhook Request? (Message)', 1);
+  link('Read Request Log', 'Prepare Report Rows');
+  link('Prepare Report Rows', 'Report Result');
+  link('Report Result', 'Webhook Request? (Message)', 0);
+  link('Report Result', 'Convert to XLSX', 1);
+  link('Webhook Request? (Message)', 'Respond With Message', 0);
+  link('Webhook Request? (Message)', 'Nothing to Email', 1);
+  link('Convert to XLSX', 'Webhook Request? (File)');
+  link('Webhook Request? (File)', 'Respond With XLSX', 0);
+  link('Webhook Request? (File)', 'Email Report', 1);
+  const workflow = {
+    name: 'StayFlow | Admin Excel Report',
+    nodes: finishNodes(nodes, config),
+    connections: links,
+    settings: { executionOrder: 'v1', timezone: 'Asia/Manila', saveManualExecutions: true },
+    pinData: {},
+    active: false,
+  };
+  if (config.workflowId) workflow.id = 'stayflowReport01';
+  return workflow;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const env = process.argv[2] || 'local';
   mkdirSync(join(ROOT, 'dist'), { recursive: true });
-  const out = join(ROOT, 'dist', `stayflow-${env}.json`);
-  writeFileSync(out, JSON.stringify(buildWorkflow(env), null, 2));
-  console.log(`wrote ${out}`);
+  const outputs = {
+    [`stayflow-${env}.json`]: buildWorkflow(env),
+    [`stayflow-report-${env}.json`]: buildReportWorkflow(env),
+    [`stayflow-notion-resync-${env}.json`]: buildNotionResyncWorkflow(env),
+  };
+  for (const [file, workflow] of Object.entries(outputs)) {
+    if (!workflow) {
+      console.log(`skipped ${file}: set notion.databaseId in config/${env}.json to build the Notion mirror`);
+      continue;
+    }
+    writeFileSync(join(ROOT, 'dist', file), JSON.stringify(workflow, null, 2));
+    console.log(`wrote ${join(ROOT, 'dist', file)}`);
+  }
 }

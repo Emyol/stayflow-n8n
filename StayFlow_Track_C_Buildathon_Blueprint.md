@@ -4,9 +4,11 @@
 **Competition:** Hack with the Flow: n8n Buildathon — Qualifying Round  
 **Track:** C — Intelligent Customer Concierge  
 **Official challenge:** *Rule-Based Guest Request Automation & Front-Desk Log Sync*  
-**Working date:** October 26, 2026 (Philippines)  
+**Blueprint updated:** October 26, 2026 (Philippines)  
 **Deadline:** **Saturday, October 31, 2026, 10:00 PM (Asia/Manila)**  
 **If qualified:** Top 3 teams per track compete **November 7, 2026, 1:00–6:00 PM** (NCR, venue TBA).
+
+> **Project status:** The team reports that the StayFlow core site/workflow is already built. Sections 1–16 preserve the original core implementation and compliance plan; **new Sections 17–21** are a post-build integration plan for **Notion front-desk operations** and **Excel reporting/export**. The core implementation has not been independently inspected; verify it against the quality gate before expanding. Both integrations are **optional enhancements**, not substitutes for any required Track C nodes.
 
 > **Read this first:** The organizer assigns a specific problem to Track C: **hotel guest request processing**, not AI social media content generation. The project below is intentionally rules-driven. Build and run it **only** in the organizer's designated n8n instance: `https://khylepanganiban.app.n8n.cloud`. A local/Docker n8n workflow is **not an accepted submission**. Import the official **Track C JSON starter template** from the linked Google Doc. Keep and execute its provided HTTP Request node(s). Do not replace their mandatory data source with manually entered production input.
 
@@ -39,8 +41,8 @@ Guest request → classify → validate → check availability + policy → deci
 ### MVP: do these, not everything
 
 **Must ship:** Four request categories, sheet lookups, deterministic routing, log updates, calendar scheduling, rich HTML responses, duplicate prevention, at least 6 tests, 2–5 minute demo.  
-**Nice to have after MVP:** A small dashboard, SLA escalation, follow-up digest, visual hotel branding.  
-**Do not waste qualifying-round time on:** AI agent, chatbot, Facebook integration, guest-facing website, payments, realistic PMS integration, multi-property database, auto-publishing content.
+**Nice to have after MVP:** **Notion operations dashboard and `.xlsx` reporting (detailed in Sections 17–21)**, SLA escalation, follow-up digest, visual hotel branding.  
+**Do not waste qualifying-round time on:** AI agent, chatbot, Facebook integration, payments, realistic PMS integration, multi-property database, auto-publishing content. **If a guest-facing site already exists, reuse it; do not rebuild it just to add Notion/Excel.**
 
 ---
 
@@ -53,6 +55,8 @@ Guest request → classify → validate → check availability + policy → deci
 | **Google Sheets** | Read availability/policy/booking rows; log and update requests | Show before/after sheet rows |
 | **Google Calendar** | Create operational reminder, room hold, or staff follow-up | Open the created event |
 | **Gmail** | Send styled HTML guest outcome email | Open received example email |
+| **Notion (optional)** | Mirror each processed request to an internal staff board | Show one correctly synced Notion card |
+| **Excel/XLSX (optional)** | Produce an admin-only report from Sheets records | Open actual downloaded `.xlsx` in Excel or compatible app |
 | All five actually execute | Demonstrate a happy-path request through all five | n8n execution details + recorded evidence |
 | Original work | Our own business rules, normalization, routing, templates, test fixtures | Source workflow clearly created by team |
 | Official n8n workspace | All development + execution in organizer's cloud | Workflow URL on correct domain |
@@ -99,6 +103,8 @@ Guest request → classify → validate → check availability + policy → deci
                  |
           [End + audit data]
 ```
+
+**Optional additions:** After `15 — Update Request Audit`, branch to `16 — Sync Notion` (non-blocking). For Excel, use a separate protected admin/reporting path that **reads the existing Sheets data** and runs `Convert to File → XLSX`. Do not mix its on-demand trigger with the mandatory Track C HTTP Request path. Full node plans appear in Sections 17–21.
 
 **Why the order matters:** Validate first. Check duplicates *before* creating calendar events. Log the intended decision and later update its delivery state so failed operations are visible. Create a Calendar follow-up before claiming a completed staff handoff. Do not mark a guest request `CONFIRMED` if critical capacity checks or downstream operations failed.
 
@@ -168,12 +174,13 @@ Required columns:
 request_id,booking_id,guest_name,guest_email,request_type,stay_date,
 requested_checkin_time,current_room_type,target_room_type,amenity,
 status,decision_code,decision_reason,staff_action,calendar_event_id,
-email_status,email_sent_at,created_at,last_updated_at
+email_status,email_sent_at,created_at,last_updated_at,
+notion_page_id,notion_sync_status,notion_last_synced_at
 ```
 
 Recommended statuses: `RECEIVED`, `CONFIRMED`, `ALTERNATIVE_OFFERED`, `MANUAL_REVIEW`, `INVALID`, `REJECTED`, `ACTION_FAILED`, `EMAIL_SENT` (or keep business status and delivery status separate).
 
-**Avoid mixing business status with delivery status:** prefer `status=CONFIRMED` and `email_status=SENT` over changing the business outcome to `EMAIL_SENT`.
+**Avoid mixing business status with delivery status:** prefer `status=CONFIRMED` and `email_status=SENT` over changing the business outcome to `EMAIL_SENT`. Also keep `notion_sync_status` separate: an unavailable Notion API must not change the hotel decision. **New columns are additive; do not rename the columns your finished workflow already uses.**
 
 ---
 
@@ -325,6 +332,14 @@ switch (request.request_type) {
 
 **Check:** At least one intentional failure is detected, recorded, and visible to staff without a false confirmation.
 
+### Phase F — Optional Notion + Excel extension (after the core passes tests)
+
+- [ ] Add a **best-effort Notion projection** after the core log is updated, using existing `request_id` and decision state; see Section 17.
+- [ ] Make Notion writes idempotent. A repeated run must update the same page rather than create a duplicate.
+- [ ] Add an **admin-only** on-demand export path to read `GuestRequests` and convert rows into XLSX; see Section 18.
+- [ ] Test both add-ons independently; a Notion failure or Excel export failure must not break the required guest-confirmation flow.
+- [ ] Hide or disable the extras if they cannot be demonstrated safely before submission.
+
 ### Design note for n8n field mappings
 
 Use the n8n input/output viewer to map fields; for example, after `01 — Normalize Input`, values are normally accessed as `{{$json.booking_id}}` **in nodes directly receiving that normalized item**. Cross-branch mappings require explicit node references or Merge/Set processing. Confirm the expression preview before saving because Sheets/Calendar/Gmail nodes may replace the current `$json` with their own outputs. Use stable names and inspect item linking.
@@ -396,7 +411,7 @@ Use timezone `Asia/Manila` and a shared **demo front-desk calendar** (or team-ow
 | T09 | Booking missing/cancelled | `MANUAL_REVIEW` | Staff verification, no confirmation |
 | T10 | Inventory row missing / Google node fails | `MANUAL_REVIEW` / `ACTION_FAILED` | Fail-safe logging and alert |
 
-**Live demo priority:** T01 (successful end-to-end) → T03 (fully booked case) → T07 (duplicate). Briefly show T06 if time. Save screenshots or execution IDs for debugging, but upload **only one** canvas screenshot as required.
+**Live demo priority:** T01 (successful end-to-end) → T03 (fully booked case) → T07 (duplicate). Briefly show a **Notion card and Excel export only after proving the five required categories**. Add-on tests N01–N06 and X01–X07 are in Section 19. Save screenshots or execution IDs for debugging, but upload **only one** canvas screenshot as required.
 
 ### Quantitative impact to present without fabricating results
 
@@ -420,13 +435,27 @@ Show observed demo measurements; don't claim real hotel cost savings or guest sa
 | **Fri Oct 30** | Edge-case fixes, retry safety, test suite, one-page documentation | T01–T10 documented, no critical failures |
 | **Sat Oct 31** | Freeze workflow, capture canvas, record 2–5 min video, submit | Submit **before** 10:00 PM; aim internally for 8:00 PM |
 
+### Post-core add-on sprint (if the workflow is already complete)
+
+| Order | Priority | Deliverable | Stop condition |
+|---|---|---|---|
+| 1 | Critical | Re-run T01/T03/T07 on official instance | All five mandatory categories work; no regression |
+| 2 | High | Notion DB + create/update sync + retry flag | N01–N04 pass |
+| 3 | Medium | One-sheet XLSX export from existing Sheets data | X01–X04 pass |
+| 4 | Optional | Admin-site download button, summary XLSX, overdue follow-up view | Only if no demo or submission risk |
+| 5 | Critical | Freeze, rehearse, submit before Oct 31, 10 PM | Finished qualifying-round package |
+
+**Team constraint:** No additional feature should delay the required video, screenshot, workflow URL, or one-page documentation.
+
 ### Suggested division for three teammates
 
 | Role | Owner responsibility | Deliverable |
 |---|---|---|
 | **Automation / n8n Lead** | Import official starter, node graph, normalization, routing, error paths | Reliable workflow + clean canvas |
 | **Data / Integration Lead** | Google Sheets schemas, seed data, bookings, policy logic, Calendar/Gmail integrations | Working app nodes + test evidence |
-| **QA / Pitch Lead** | Test matrix, branded HTML emails, one-page doc, demo script, screen recording | Submission assets + clear business story |
+| **QA / Pitch Lead** | Test matrix, branded HTML emails, one-page doc, demo script, screen recording; own Excel reporting if core QA is done | Submission assets + clear business story |
+
+**For the add-on sprint:** Automation Lead handles Notion branch, Data Lead owns schema/mapping, QA/Pitch Lead tests the XLSX file and demo. Reassign by actual team availability; do not risk incomplete core integrations.
 
 If only two people: combine QA/Pitch with integrations. Everyone should understand the full workflow for the live finals.
 
@@ -450,6 +479,7 @@ If only two people: combine QA/Pitch with integrations. Everyone should understa
 - [ ] Clean synthetic Google Sheet with sample requests and availability.
 - [ ] Demo recording source file and one-page README.
 - [ ] A short list of tested scenarios/results.
+- [ ] Optional: Notion database link **for internal team only**, report sample `.xlsx`, and add-on failure evidence.
 - [ ] Exact final workflow URL and account access confirmed by team.
 
 **Do not share secrets:** Redact access tokens, credential names if sensitive, guest emails, and private information from screenshots, exports, and videos.
@@ -466,7 +496,8 @@ If only two people: combine QA/Pitch with integrations. Everyone should understa
 | **1:45–2:25** | Execute fully booked upgrade. Show alternative result; verify no unsupported room assignment. |
 | **2:25–3:05** | Execute duplicate request. Show lookup and that no second event/email/hold is created. |
 | **3:05–3:40** | Answer explicit track questions: conditional routing/template injection; conflict + duplicate handling; operational impact and PMS scalability. |
-| **3:40–4:00** | End with concise impact, tradeoff, and what we'd improve for the finals. |
+| **3:40–4:15 (optional)** | Show Notion request board and one downloaded Excel report, if both work and the recording remains under 5:00. |
+| **4:15–4:30 (optional)** | End with concise impact and tradeoff. **If optional features are not demo-ready, use the original 4-minute ending instead.** |
 
 ### The three required track answers (say these explicitly)
 
@@ -491,7 +522,7 @@ If only two people: combine QA/Pitch with integrations. Everyone should understa
 **Safety/robustness:** Validation, duplicate ID check, no confirmation without availability, fallback to staff review, retry/audit states, HTML escaping.  
 **Evidence:** Show execution screenshot + one successful and one adverse input with linked sheet/calendar/email results.  
 **Impact:** Reduced manual handoffs (demo measured), consistent policy messaging, traceable operational tasks.  
-**Limitations/future:** Google Sheets is a demo store, not atomic inventory; add PMS integration, concurrency controls, and SLA alerts for production.
+**Optional operational layer:** Notion as a non-authoritative staff board, Excel as an on-demand reporting file. **Limitations/future:** Google Sheets is a demo store, not atomic inventory; add PMS integration, concurrency controls, and SLA alerts for production.
 
 Keep the final doc truly one page. The Markdown blueprint is the **build guide**, not the one-page judged documentation.
 
@@ -510,7 +541,9 @@ Keep the final doc truly one page. The Markdown blueprint is the **build guide**
 | Gmail recipient is missing/invalid | Log error; don't send to an invented address |
 | Concurrent room requests | Serialize capacity-changing steps if supported; otherwise manual-review contested allocations |
 | HTML email has raw guest-entered markup | Escape interpolated user text before constructing HTML |
-| Under 2 minutes / over 5 minutes | Rehearse; target approximately 4:00 |
+| Under 2 minutes / over 5 minutes | Rehearse; target approximately 4:00–4:30 with extras, never above 5:00 |
+| Notion sync fails / credentials revoked | Keep Sheets as authoritative, mark `notion_sync_status=FAILED`, retry safely; do not resend guest email |
+| Excel export endpoint is publicly accessible | Disable public endpoint; enforce server-side admin authentication or deliver only to a verified internal mailbox |
 | Only a flow screenshot, no live execution | Record actual HTTP → decisions → Sheets → Calendar → Gmail path |
 
 ---
@@ -543,6 +576,13 @@ Keep the final doc truly one page. The Markdown blueprint is the **build guide**
 - [ ] One-page documentation is ready.
 - [ ] Team can explain the difference between a room hold and a confirmed reservation.
 
+**Optional enhancements — only after the four judging categories pass**
+
+- [ ] Notion displays the same `request_id`, status, and assigned follow-up as Sheets.
+- [ ] Reprocessing the same ID does **not** create a second Notion page.
+- [ ] Excel export opens as a real XLSX and contains only allowed fields.
+- [ ] Add-ons cannot block guest confirmations or silently alter availability.
+
 ### Final submission check
 
 - [ ] Workflow URL points to `khylepanganiban.app.n8n.cloud`.
@@ -554,7 +594,417 @@ Keep the final doc truly one page. The Markdown blueprint is the **build guide**
 
 ---
 
-## 17. Reference links
+## 17. Add-on #1 — Notion front-desk operations dashboard (implementation-ready)
+
+### 17.1 Goal and architecture
+
+**User story:** A front-desk employee opens a single Notion board to see new and unresolved hotel guest requests, search by request ID, and identify follow-up work **without accessing the raw n8n canvas**.
+
+**Important:** Notion is a **read-oriented mirror** of the Google Sheets `GuestRequests` log. **Google Sheets remains the source of truth** for the competition's availability, hotel rules, request decisions, and audit. Never let changing a Notion status silently reserve a room or send a guest email. Manual Notion edits do not automatically update Sheets in this version.
+
+```text
+Mandatory judged path (unchanged)
+HTTP Request (organizer) → Validate → Sheets lookup → Rules → Sheets audit
+                                                  → Calendar → Gmail → Sheets final audit
+                                                                   |
+                                                                   v
+                                                    [16 — Prepare Notion Payload]
+                                                                   |
+                                                    [17 — Find Notion Page by request_id]
+                                                         /                    \
+                                              Existing page                No page
+                                                  |                          |
+                                      [18a — Update Page]           [18b — Create Page]
+                                                         \                    /
+                                                          [19 — Save Notion ID/status]
+                                                                   |
+                                                          [Optional staff board]
+
+On Notion error → log sync failure in Sheets / retry queue; DO NOT re-run Calendar or Gmail.
+```
+
+*Attach the projection to the final audited status if you want the first card to show email delivery details. If the original flow is already branching, use an explicitly constructed Set payload so changes in `$json` from Gmail/Sheets don't erase required keys.*
+
+### 17.2 Set up the database in Notion (10–20-minute configuration)
+
+1. Create a **private** Notion page: `StayFlow | Front Desk`.
+2. Inside it create a **database**, named `Guest Request Board` (full-page or inline).
+3. Add the following properties. Notion's required page-title property may be named `Request` instead of `Name`.
+4. Create views: **Board by Status**, **Pending Review** (filtered `MANUAL_REVIEW`/`ALTERNATIVE_OFFERED`), **Arrivals This Week**, and **All Requests**.
+5. Give the n8n Notion integration access to this database/page. Use n8n's saved credential, not a token pasted in a Code or Set node.
+
+| Notion property | Notion type | Map from Sheets/n8n | Required? |
+|---|---|---|---|
+| `Request` | Title | `{{request_id}} — {{request_type}}` | Yes |
+| `Request ID` | Rich text | `request_id` | Yes, unique logical key |
+| `Booking ID` | Rich text | `booking_id` | Yes |
+| `Request Type` | Select | `Early Check-in`, `Room Upgrade`, `Amenity`, `Accommodation` | Yes |
+| `Status` | Status or Select | `RECEIVED`, `CONFIRMED`, `ALTERNATIVE_OFFERED`, `MANUAL_REVIEW`, `INVALID`, `REJECTED`, `ACTION_FAILED` | Yes |
+| `Arrival Date` | Date | `stay_date` | Yes when available |
+| `Staff Action` | Rich text | `staff_action` | Yes |
+| `Decision Reason` | Rich text | `decision_reason` (sanitize/shorten) | Recommended |
+| `Priority` | Select | `High`, `Normal`, `Low` (derived from policy) | Recommended |
+| `Calendar Event ID` | Rich text | `calendar_event_id` | Recommended |
+| `Email Delivery` | Select | `PENDING`, `SENT`, `FAILED`, `SKIPPED` | Recommended |
+| `Last Sync` | Date | `last_updated_at` / sync timestamp ISO8601 | Recommended |
+| `Assigned To` | People | Only if a real staff Notion user is known | Optional |
+
+**Notion status compatibility:** Create matching status/select options in the UI before using them in automation; exact Notion API property handling may differ by integration/database version. Use the credential's actual returned database/data-source ID in the n8n node; never hard-code a guessed ID.
+
+**Guest privacy:** For buildathon tests, use synthetic hotel data. Only show the minimum staff-required information in Notion; **omit the email address and freeform private guest notes** from the default board. Do not publish the board to the web.
+
+### 17.3 Add the n8n nodes to your existing workflow
+
+| Order | Suggested name | n8n node/action | Key settings / output |
+|---|---|---|---|
+| N1 | `16 — Prepare Notion Payload` | **Edit Fields (Set)** | Pass stable `request_id`, decision, date, task, calendar ID and email status; preserve item linking |
+| N2 | `17 — Lookup Notion Page` | **Notion → Database Page → Get Many** with filter if available, or Notion API/data-source query | Filter on exact `Request ID`, not title; handle zero results |
+| N3 | `18 — Existing Notion Page?` | **IF** | True when a matching page ID exists |
+| N4a | `19a — Update Notion Card` | **Notion → Database Page → Update** | Pass stored/found Notion page ID and map changed properties |
+| N4b | `19b — Create Notion Card` | **Notion → Database Page → Create** | Parent: `Guest Request Board`; map all required properties |
+| N5 | `20 — Store Notion Sync Outcome` | **Google Sheets → Update Row** | Write `notion_page_id`, `notion_sync_status=SYNCED`, `notion_last_synced_at` |
+| N6 | `21 — Handle Notion Failure` | **IF / error branch + Sheets update** | Set sync status `FAILED` and capture a safe error summary; do not touch main decision |
+
+**Alternative to N2:** If a valid `notion_page_id` is already stored on the matching Sheet row, use it for Update. On missing/stale ID, query Notion by `Request ID` before Create. The `Get Many`/filter UI can vary by n8n version; use **HTTP Request authenticated with the Notion credential to query the correct database/data source** if the node does not expose an exact filter. Preserve HTTP starter input; this Notion read is supplemental.
+
+**First-time setup:** Create one sample card and inspect the Notion node output to record the true page `id`. **Never deduce** page IDs from titles or guest names.
+
+### 17.4 Suggested normalized Notion sync payload
+
+```json
+{
+  "request_id": "REQ-1001",
+  "booking_id": "BKG-1001",
+  "request_type": "early_checkin",
+  "notion_type": "Early Check-in",
+  "status": "CONFIRMED",
+  "priority": "Normal",
+  "stay_date": "2026-11-03",
+  "staff_action": "Prepare room for early arrival",
+  "decision_reason": "Early-ready room available under hotel policy",
+  "calendar_event_id": "event-id-from-calendar-node",
+  "email_status": "SENT",
+  "last_updated_at": "2026-10-26T13:00:00+08:00"
+}
+```
+
+**Use this object only after the existing workflow has generated these values.** Dates/IDs above are fictional. Use the same `request_id` found in `GuestRequests` and the exact status used by the hotel rule engine. If your live workflow uses other status names, make one explicit mapping table instead of introducing silent mismatches.
+
+### 17.5 Idempotency and failure rules
+
+- **Notion is a projection, not the transaction:** a failed Notion write must not cause guest email/calendar to be replayed.
+- **Upsert by `request_id`:** read `notion_page_id`; if absent, query Notion `Request ID`; Update the existing record, Create only if no match. Store the final page ID in Sheets. Avoid creating a page when a previous create may have succeeded but the response timed out—query again first.
+- **Store sync state independently:** `PENDING` → `SYNCED` or `FAILED`; store `notion_last_synced_at` on success. Optionally add `notion_last_error` to Sheets for debugging (no tokens or raw guest data).
+- **Rate limits and retries:** use n8n retry/error handling with backoff for transient failures. Limit retry count and send failed records to a staff-visible queue; never let unlimited loops generate pages.
+- **Concurrent executions:** Notion's find-then-create is not an atomic uniqueness constraint; if two executions can race, serialize the Notion creation stage or do a periodic duplicate reconciliation by `Request ID`.
+- **Board edits:** treat statuses as **display only** initially. To make them actionable later, design a separate authenticated staff-approval workflow that validates bookings/policy/availability before updating Sheets and only then sending a guest response.
+
+### 17.6 Definition of done — Notion
+
+- [ ] Notion integration has access only to the required workspace/database.
+- [ ] Every completed core request appears in one Notion card with matching status.
+- [ ] Re-running an existing `request_id` updates one page; no duplicate card.
+- [ ] Fully booked upgrade displays `ALTERNATIVE_OFFERED`, not `CONFIRMED`.
+- [ ] Temporarily disabling Notion credentials shows `FAILED` sync without resending guest email.
+- [ ] Staff board is private and contains only fictional demonstration records.
+
+---
+
+## 18. Add-on #2 — Excel report generation and download
+
+### 18.1 Goal and recommended architecture
+
+**User story:** A hotel manager clicks **Export Report** in StayFlow, chooses a date range, and downloads a real Excel `.xlsx` file summarizing processed guest requests. A fallback route sends the XLSX to a staff-controlled email if the site download is not ready.
+
+**Recommended:** Use n8n's built-in **Convert to File → Convert to XLSX**. This does **not** require Microsoft 365 Excel API access. It creates an Excel-compatible file directly from JSON rows. Do not move the master records from Google Sheets to Excel.
+
+```text
+OPTION 1 — Best for existing StayFlow admin site (separate protected workflow)
+[Admin Export button / authenticated server]
+       ↓
+[Webhook: /stayflow/reports/export]  <-- server-side authorize staff access
+       ↓
+[Validate date range + max row count]
+       ↓
+[Google Sheets: read GuestRequests]
+       ↓
+[Code: filter + sanitize + compute report fields]
+       ↓
+[Convert to File: Convert to XLSX, binary field = data]
+       ↓
+[Respond to Webhook: Binary File, source = data]
+       ↓
+[Browser download: StayFlow_Guest_Requests_YYYY-MM-DD.xlsx]
+
+OPTION 2 — Easiest safe fallback (separate manual/reporting workflow)
+[Manual Trigger / authorized Schedule Trigger]
+       ↓
+[Read Sheets → Clean/Filter → Convert to XLSX]
+       ↓
+[Gmail: Send with attachment binary field data to authorized staff]
+```
+
+**Important competition boundary:** **Neither option may replace the organizer's mandatory HTTP Request trigger/data input in the judged Track C workflow.** Keep this as a separate optional internal reporting workflow on the **same organizer-designated n8n instance** (if permitted) or a clearly subordinate branch. The five core required nodes must remain visibly functional regardless of export outcome. Do not assume the event organizers will assess the extra workflow as part of the qualifying submission.
+
+### 18.2 Report columns (one-sheet MVP)
+
+Export the following columns from `GuestRequests`, in this display order. Map from your actual sheet headers if they differ.
+
+| Excel header | Source/derivation | Format |
+|---|---|---|
+| `Request ID` | `request_id` | Text |
+| `Booking ID` | `booking_id` | Text |
+| `Request Type` | `request_type` | Text |
+| `Stay Date` | `stay_date` | `YYYY-MM-DD` text/date |
+| `Decision` | `status` | Text |
+| `Reason` | `decision_reason` | Text, truncated if needed |
+| `Staff Action` | `staff_action` | Text |
+| `Email Status` | `email_status` | Text |
+| `Calendar Event Created` | `Boolean(calendar_event_id)` | `Yes` or `No` |
+| `Created At` | `created_at` | ISO timestamp |
+| `Email Sent At` | `email_sent_at` | ISO timestamp or blank |
+| `Response Minutes` | difference between sent and received timestamps | Number or blank |
+| `Notion Synced` | `notion_sync_status` | Text |
+
+**Do not export** private guest notes, unnecessary guest personal data, or credentials. For the demo, remove `guest_name` and `guest_email` from the report entirely. A production per-guest report would need role-based access and an explicit data-retention policy.
+
+### 18.3 Exact n8n node configuration — downloadable XLSX
+
+| Order | Node | Configuration |
+|---|---|---|
+| X1 | `Webhook — Admin Export` | Separate `GET` or `POST` endpoint. Use `POST` with a validated JSON date range for the site. Set response mode **Using Respond to Webhook Node**. |
+| X2 | `Code — Validate Filter` | Validate `start_date`, `end_date`, date order, max range (e.g. 31 days). Reject unauthenticated or invalid requests **before reading Sheets**. |
+| X3 | `Google Sheets — Get Rows` | Get rows from `GuestRequests`; handle pagination if your selected node/API configuration limits results. Enable **Always Output Data** or equivalent empty-path handling so the next Code node runs even for an empty sheet. |
+| X4 | `Code — Prepare Rows` | Produce **one n8n item per exported row** with clean Excel column names. Filter date range, calculate `Response Minutes`, sanitize formula-like strings. Return a single control item for **empty or too-large** reports. |
+| X5 | `Switch — Report Result` | Route `__empty_export=true` to an explicit no-records JSON response; route `__too_many_rows=true` to a size-limit error; route normal row items to XLSX conversion. Do not turn control items into spreadsheet rows. |
+| X6 | `Convert to File — Convert to XLSX` | Choose **Convert to XLSX**, output file field `data`, `Header Row=On`, `Sheet Name=Guest Requests`, `File Name=StayFlow_Guest_Requests_YYYY-MM-DD.xlsx` (use an actual evaluated expression). |
+| X7 | `Respond to Webhook` | **Respond With = Binary File**; choose binary field `data`. Add content-type and content-disposition headers when supported. |
+
+**Response headers (download route):**
+
+```http
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="StayFlow_Guest_Requests_2026-10-26.xlsx"
+Cache-Control: no-store
+```
+
+The `Respond to Webhook` node requires an actual preceding Webhook node configured to use it. It returns **one binary file** from the first incoming item, which is exactly what `Convert to XLSX` creates.
+
+**Authentication is not optional:** A public webhook URL plus a hidden button is **not security**. Restrict the download endpoint to authenticated staff. Prefer a backend that verifies a user session and makes a server-to-server request; if using n8n Webhook authentication, configure and test it in the organizer instance. Never embed a reusable n8n webhook secret in browser-side JavaScript or a public repository. If secure auth is unavailable, use **Option 2** (send report only to a verified internal email).
+
+### 18.4 Prepare row transformation (n8n Code node example)
+
+Use **Run Once for All Items** after Google Sheets returns raw `GuestRequests` rows. Replace the column names if your sheet uses display labels. The example assumes `startDate` and `endDate` are available from the validated request—wire these from `X2`, for example with an explicit node reference, not guessed item linkage.
+
+```js
+// Example for the Code node; adapt to actual n8n node names and field shapes.
+const { startDate, endDate } = $('Code — Validate Filter').first().json;
+const rows = $input.all().map(item => item.json);
+
+function excelText(value) {
+  let text = String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
+  // Protect against spreadsheet formula injection in downloaded reports.
+  if (/^[=+\-@\t]/.test(text)) text = "'" + text;
+  return text.slice(0, 500);
+}
+function responseMinutes(createdAt, sentAt) {
+  if (!createdAt || !sentAt) return '';
+  const a = Date.parse(createdAt), b = Date.parse(sentAt);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return '';
+  return Math.round((b - a) / 60000 * 100) / 100;
+}
+const selected = rows.filter(row => {
+  const date = String(row.created_at ?? '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= startDate && date <= endDate;
+});
+
+if (selected.length === 0) return [{ json: { __empty_export: true } }];
+if (selected.length > 500) {
+  return [{ json: { __too_many_rows: true, count: selected.length } }];
+}
+
+return selected.map(r => ({
+  json: {
+    'Request ID': excelText(r.request_id),
+    'Booking ID': excelText(r.booking_id),
+    'Request Type': excelText(r.request_type),
+    'Stay Date': excelText(r.stay_date),
+    'Decision': excelText(r.status),
+    'Reason': excelText(r.decision_reason),
+    'Staff Action': excelText(r.staff_action),
+    'Email Status': excelText(r.email_status),
+    'Calendar Event Created': r.calendar_event_id ? 'Yes' : 'No',
+    'Created At': excelText(r.created_at),
+    'Email Sent At': excelText(r.email_sent_at),
+    'Response Minutes': responseMinutes(r.created_at, r.email_sent_at),
+    'Notion Synced': excelText(r.notion_sync_status),
+  },
+}));
+```
+
+**Important:** This example is a mapping template, not proof that the user's live Sheet columns match it. Test in n8n's output preview. Empty filtering must go to the no-records branch instead of `Convert to XLSX`. Set the Sheets read node to emit an empty item when there are no rows, so `Code — Prepare Rows` can produce the control item. Configure the Switch to route on the control flags; its normal/default path passes actual row items. The 500-row limit is a configurable demo safety limit, **not** permission to silently truncate a larger export. The example compares dates in the timestamp as written; ensure `created_at` uses **consistent ISO timestamps in Asia/Manila** or normalize all timestamps to that zone first.
+
+### 18.5 Management metrics (optional bonus)
+
+Build these metrics from the **same filtered rows**, separate from the one-sheet raw report:
+
+| Metric | Rule |
+|---|---|
+| Total requests | Count filtered `GuestRequests` rows |
+| Confirmed | Count business `status=CONFIRMED` |
+| Alternatives offered | Count `ALTERNATIVE_OFFERED` |
+| Manual review | Count `MANUAL_REVIEW` |
+| Rejected / invalid | Count those states separately |
+| Email delivery rate | `SENT` / eligible-to-send rows (label denominator) |
+| Average response time | Mean minutes for rows with both valid timestamps |
+| Requests by type | Group by normalized request type |
+| Notion sync rate | `SYNCED` / eligible rows |
+
+**Do not pretend these are real-world KPIs:** Label sample data as synthetic. Display summary metric counts on the StayFlow admin UI, or generate a **separate** `StayFlow_Summary.xlsx` from one or several rows. A single `Convert to XLSX` step typically creates **one worksheet**; do not promise a multi-sheet formatted Excel dashboard without adding a verified workbook-editing mechanism (for example, Microsoft Graph/Excel 365 via authenticated API or a trusted workbook template process).
+
+### 18.6 Optional admin-site feature
+
+If the StayFlow site has an internal admin dashboard already, add a small panel (don't rebuild the app):
+
+```text
+┌───────────────────────────────────────────────────────┐
+│ Operations Reports                                   │
+│ From [2026-10-01]  To [2026-10-26]                    │
+│ [Export Guest Requests (.xlsx)]                      │
+│ Only authorized hotel staff can download reports.    │
+└───────────────────────────────────────────────────────┘
+```
+
+- On click: request an **authenticated server endpoint** (not a browser-exposed shared secret).
+- Show loading, empty-results, and error states; only download when a valid XLSX response arrives.
+- Use `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` for file responses.
+- Log an admin report export event if you need auditability, but do not log guests' full notes.
+- If the site is static-only with no secure backend session, prefer the authorized staff-email fallback.
+
+### 18.7 Definition of done — Excel
+
+- [ ] Exported binary is a true `.xlsx`, not a CSV merely renamed to `.xlsx`.
+- [ ] A filtered request row appears with correct status, type, dates, and response-time calculation.
+- [ ] Empty selection returns a clear no-records result.
+- [ ] Unauthorized callers cannot obtain the guest report.
+- [ ] Opening the export in Excel/LibreOffice shows a sensible header row and no formula execution from user-provided text.
+- [ ] Running export does not write to hotel inventory, resend guest emails, or create calendar events.
+
+---
+
+## 19. Integration test matrix — Notion and Excel
+
+| Test | Situation | Expected outcome | Evidence |
+|---|---|---|---|
+| **N01** | New confirmed early check-in | Exactly one Notion card | Matching request ID/status |
+| **N02** | Re-run same request | Same Notion page updated | Same page ID, no duplicate |
+| **N03** | Fully booked upgrade | Status `ALTERNATIVE_OFFERED` | Notion board + original Sheet row |
+| **N04** | Notion API fails/times out | `notion_sync_status=FAILED` | Core Gmail/Calendar stay completed exactly once |
+| **N05** | One previously failed sync retried | Existing request card repaired | No re-send to guest |
+| **N06** | Staff edits a Notion card | Sheets policy and booking stay unchanged | No two-way edit side effect |
+| **X01** | Request rows for a selected valid date range | Downloadable XLSX opens | File + correct headers/data |
+| **X02** | Selected range contains no requests | Clear empty state | No fabricated data |
+| **X03** | Invalid/reversed date interval | Rejected input | Validation, no report leak |
+| **X04** | Unauthorized report attempt | 401/403 or equivalent denial | No XLSX response |
+| **X05** | Malicious formula-like text in notes/fields | Escaped, treated as text | Workbook does not execute formula |
+| **X06** | Several hundred demo rows | Complete or gracefully limited report | Verified row count |
+| **X07** | Excel export fails | Export error isolated | Core request processing still works |
+
+**QA rule:** Do not mark N02 passed merely because there are no two visible cards on the current board view: check the full database for matching Request IDs. Check X01 by opening the actual file, not just seeing a green n8n execution.
+
+---
+
+## 20. Priority plan, team execution, and on-stage story
+
+### 20.1 Time-boxed post-build implementation plan
+
+| Priority | Add-on task | Practical deliverable |
+|---|---|---|
+| **P0 — mandatory** | Re-test official Track C starter and core flow | Existing five categories still execute correctly |
+| **P1 — high** | Notion DB schema + credentials | Private `Guest Request Board` ready |
+| **P1 — high** | Create/Update page sync and idempotency | N01–N04 working |
+| **P2 — medium** | Read Sheets + Convert to XLSX | Real single-sheet export, X01–X03 working |
+| **P2 — medium** | Secure export delivery | Authenticated download or internal Gmail attachment |
+| **P3 — optional** | Site export button, metrics, overdue filters | Polish only if P0/P1/P2 tests are stable |
+| **P0 — mandatory** | Final 2–5-minute pitch and one-page documentation | Ready by Oct 31, 10:00 PM Manila time |
+
+### 20.2 Suggested team ownership
+
+- **Member A — n8n systems:** owns Notion node branch, best-effort error handling, request ID mapping.
+- **Member B — data/reporting:** owns Sheets field contract, export transformation, XLSX content/security.
+- **Member C — QA/demo/frontend:** verifies existing site/admin login, tests Notion/Excel, prepares one-page story, recording and screenshot.
+
+### 20.3 Updated elevator pitch
+
+> “StayFlow is an auditable, rules-driven hotel concierge. The organizer's guest request triggers deterministic policy and room-availability checks, then StayFlow logs the decision, schedules a front-desk action, and sends a polished guest email. We also mirror tasks to a private Notion staff board and generate Excel management reports—without compromising the core request workflow.”
+
+### 20.4 Suggested 4:30 video distribution if extras are polished
+
+| Time | Visual | Message |
+|---|---|---|
+| 0:00–0:25 | Hotel guest-request problem | Why manual front-desk work is costly |
+| 0:25–0:55 | Official n8n full canvas | Identify required HTTP, logic, Sheets, Calendar, Gmail nodes |
+| 0:55–1:45 | Early check-in happy path | Show correct decision, Sheet row, Calendar, guest Gmail |
+| 1:45–2:25 | Full upgrade + duplicate | Alternatives and no duplicate side effects |
+| 2:25–3:00 | Notion board | Staff sees matching request statuses; one request ID = one card |
+| 3:00–3:25 | Excel report | Export one real XLSX with headers and filtered sample rows |
+| 3:25–4:15 | Three required Track C pitch answers | Rules, edge cases, operations/scaling |
+| 4:15–4:30 | Closing | One-line outcome and realistic production caveat |
+
+**Fall-back:** If any add-on is not stable, cut Notion/Excel from the video and spend that time on edge-case reliability. A live qualifying-round failure costs more than an optional integration adds.
+
+### 20.5 One-page judged documentation — insert this short add-on paragraph
+
+**Operational visibility:** “Processed requests are mirrored to a private Notion board for staff triage, and managers can produce an Excel report of requests, outcomes, and response times. Google Sheets stays authoritative; these extensions are isolated from room-allocation and guest-email execution.”
+
+For the one-page sheet, include a mini flow like this:
+
+```text
+Required: HTTP Request → Rules → Sheets → Calendar/Gmail → Audit
+                                         ├── Notion staff mirror (optional)
+                                         └── Excel report export (optional)
+```
+
+**One screenshot rule:** The organizer requests **one full-canvas n8n screenshot**. Keep the judged canvas readable, showing all required nodes. Do not substitute the Notion UI or the Excel file for that screenshot. The 2–5-minute video may show their UI if time allows.
+
+---
+
+## 21. Final decisions and handoff checklist
+
+### What stays unchanged
+
+- **Track:** C — Rule-Based Guest Request Automation & Front-Desk Log Sync.
+- **Source of guest input:** the original organizer-provided HTTP Request nodes.
+- **Core execution:** policy logic + Google Sheets + Google Calendar + Gmail on the designated cloud instance.
+- **Hotel decisions:** never determined by Notion status changes or XLSX report generation.
+- **Submission deadline:** Saturday, October 31, 2026, **10:00 PM** Manila time.
+
+### Updated release checklist
+
+- [ ] Core Track C workflow still passes T01/T03/T07 after adding branches.
+- [ ] Notion `Guest Request Board` exists and is private.
+- [ ] Notion create/update operation upserts by `request_id` and saves `notion_page_id`.
+- [ ] Notion API failure is recoverable without re-running Calendar or Gmail.
+- [ ] Excel export reads current Sheet data and generates a valid `.xlsx`.
+- [ ] Report is accessible only to an authenticated hotel admin or verified internal mailbox.
+- [ ] Xlsx formula injection and privacy checks pass.
+- [ ] Only one full-canvas n8n screenshot is submitted; required nodes remain visible.
+- [ ] Demo stays between 2 and 5 minutes and covers all three Track C questions.
+- [ ] Original JSON workflow and its credentials are backed up/redacted safely.
+- [ ] Team freezes and submits before the cutoff.
+
+### What you should implement next, in order
+
+1. Verify the live core workflow is passing its original tests.
+2. Add the three `GuestRequests` Notion sync fields **without deleting any existing columns**.
+3. Create the private Notion database and finish a single-page Create/Update sync.
+4. Add Excel `Read Sheets → Code → Convert to XLSX` and prove the file opens.
+5. Add secure distribution (admin endpoint or verified staff email), then rerun tests.
+6. Capture proof, record the pitch, and submit. **Stop building new features once the core submission is ready.**
+
+---
+
+## 22. Reference links
 
 - **Official event instructions (primary source):** https://docs.google.com/document/d/1gjbyJSU14gMA-zMz5_aWI2LOFDNTRivPonhLEb5iLKY/edit
 - **Organizer's n8n environment:** https://khylepanganiban.app.n8n.cloud
@@ -562,9 +1012,12 @@ Keep the final doc truly one page. The Markdown blueprint is the **build guide**
 - **n8n documentation:** https://docs.n8n.io/
 - **n8n data mapping:** https://docs.n8n.io/data/data-mapping/data-mapping-ui/
 - **n8n Gmail send operations:** https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/
+- **n8n Notion node:** https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.notion/
+- **n8n Convert to File node (XLSX):** https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.converttofile/
+- **n8n Respond to Webhook (binary file):** https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.respondtowebhook/
 
 ---
 
-## Immediate next action
+## Immediate next action (updated for finished core)
 
-**Open the organizer's Track C template and run its HTTP Request node in the official n8n workspace.** Note the exact JSON fields it returns. Then implement normalization and the Google Sheets tabs. This is the single dependency that the rest of the blueprint is built around.
+**Re-run T01, T03, and T07 on the live official workflow and make a safe backup. Then create the private Notion database and wire its idempotent post-audit sync.** Once N01–N04 pass, implement the native XLSX report exporter. Keep the original required workflow operational throughout.

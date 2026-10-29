@@ -6,6 +6,8 @@ var LOG_COLUMNS = [
   'category', 'priority', 'check_in_date', 'check_out_date', 'room_type', 'request_details',
   'requested_time', 'status', 'decision_code', 'decision_reason', 'staff_action', 'calendar_status',
   'calendar_event_id', 'email_status', 'email_recipient', 'email_sent_at', 'processed_at', 'last_updated_at',
+  // optional Notion mirror; blank when the board is not configured
+  'notion_page_id', 'notion_sync_status', 'notion_last_synced_at',
 ];
 
 var STATUS_TEMPLATES = { CONFIRMED: 'confirmed', ALTERNATIVE_OFFERED: 'alternative', MANUAL_REVIEW: 'review' };
